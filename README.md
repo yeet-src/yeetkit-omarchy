@@ -2,8 +2,8 @@
 
 Omarchy shell plugins written as [yeetkit](../yeetkit) apps. A SolidJS page
 runs **inside a yeet isolate** on the machine and renders into the Quattro
-bar — and the panel under it — over the tty portal. There is no QML to
-write. The shell receives patches.
+bar — and the panel under it — over the isolate's own tty. There is no
+QML to write, and no port: the shell receives patches on a pipe.
 
 ## Getting started
 
@@ -29,41 +29,44 @@ npm run dev          # builds into ~/.config/omarchy/plugins/io.github.you.procs
 omarchy plugin enable io.github.you.procs
 ```
 
-Needs `node` (>= 20) and `yeet` on `PATH` with the daemon running, and —
-on the machine that runs the shell — the QML WebSocket module Omarchy
-does not ship:
-
-```sh
-sudo pacman -S qt6-websockets
-```
-
-`yeetkit-omarchy check` also wants `qml6` from `qt6-declarative`, which
-Omarchy machines already have; without it the QML layer of the check is
-skipped and says so.
+Needs `node` (>= 20) and `yeet` on `PATH` with the daemon running. The
+plugin itself needs only `yeet` and `script` from util-linux, which every
+Arch install has. `yeetkit-omarchy check` also wants `qml6` from
+`qt6-declarative`, which Omarchy machines already have; without it the QML
+layer of the check is skipped and says so.
 
 ## The idea
 
 An Omarchy plugin is QML loaded into the long-running shell process. A
 yeetkit app is a Solid tree in an isolate whose every mutation leaves as
-one patch on a WebSocket. The browser client applies those patches to a
-DOM; this package ships a second client that applies them to QML items.
+one patch on its tty. The browser client applies those patches to a DOM;
+this package ships a second client that applies them to QML items.
 
 ```
-  omarchy-shell (Quickshell)                    isolate
-  ┌──────────────────────────────┐              ┌──────────────────────┐
-  │ BarWidget.qml  Panel.qml     │◀── tty:ws ──▶│ app/page.jsx         │
-  │   └ yeetkit/Yeetkit.qml      │   patches ↓  │   <bar>…</bar>       │
-  │       └ nodes/*.qml          │   events  ↑  │   <panel>…</panel>   │
-  │ Service.qml ── yeet run ─────┼─────────────▶│ yeet.graph bpf ai    │
-  └──────────────────────────────┘              └──────────────────────┘
+  omarchy-shell (Quickshell)                       isolate
+  ┌───────────────────────────────┐                ┌──────────────────────┐
+  │ BarWidget.qml  Panel.qml      │                │ app/page.jsx         │
+  │   └ yeetkit/Yeetkit.qml       │  stdout: frames│   <bar>…</bar>       │
+  │       └ nodes/*.qml           │◀───────────────│   <panel>…</panel>   │
+  │ yeetkit/Isolate.qml (singleton)│  stdin: keys  │                      │
+  │   └ Process: script yeet run ─┼───────────────▶│ yeet.graph bpf ai    │
+  └───────────────────────────────┘                └──────────────────────┘
 ```
 
-`Service.qml` runs `yeet run -p tty:ws://127.0.0.1:<port> app.js` once per
-plugin — a bar exists per monitor, an isolate must not — and each bar
-widget dials the port. The tty is a broadcast, so two monitors are two
-views of one state, exactly as two browser tabs are in yeetkit. There is
-no Node hub: the shell is the only peer, and nothing crosses the wire that
-it should not see.
+`Isolate.qml` is a QML singleton — once per engine, and the shell is one
+engine — so however many monitors show the widget there is one `yeet
+run`, started when the first widget attaches and stopped a few seconds
+after the last detaches. Every widget is a view of it, exactly as two
+browser tabs are in yeetkit.
+
+The transport is the process's stdio. An isolate has a tty — the one lane
+with an input side — only when it is given a PTY, and a pipe is not one,
+so the run is wrapped in `script`: the isolate sees a terminal, its
+output arrives on stdout, and every byte written to stdin is a keystroke.
+That is what the yeetkit wire format was built for: frames down inside an
+OSC sequence escaped to pure ASCII, messages up as base64url ending in
+Enter. There is no port, no socket, no Node hub, and nothing another user
+on the machine can dial. Frames of a megabyte cross the PTY intact.
 
 The page is ordinary yeetkit — `createSignal`, `<Index>`, `onCleanup`,
 `yeet.graph`, `"use yeet"` modules, BPF objects from `bpf/`. Two elements
@@ -165,54 +168,52 @@ panel is open. Escape and Tab stay with the shell.
 
 ```
 yeetkit-omarchy new <name> [--id io.github.you.name]
-yeetkit-omarchy dev      build into ~/.config/omarchy/plugins/<id>, run the
-                         isolate here, rebuild on change (--out to redirect)
+yeetkit-omarchy dev      build into ~/.config/omarchy/plugins/<id> and
+                         rebuild on change (--out to redirect)
 yeetkit-omarchy build    the publishable folder, in plugin/
 yeetkit-omarchy check    drive a built plugin over a real portal
 ```
 
-**dev** writes the plugin folder with `managed: false` in
-`yeetkit/Config.js`, so the shell's `Service.qml` stays idle and the dev
-server owns the isolate — a save rebuilds, restarts it, and the widget's
-socket reconnects and is handed a fresh tree. The shell reloads plugin
-code on its own when files under its plugin directory change.
+**dev** writes the plugin folder into the shell's plugin directory and
+rebuilds on every change. The shell reloads plugin code on its own when
+files there change, and `Isolate.qml` watches `app.js`: a rewritten bundle
+restarts the run, and the widget's client reconnects and is handed a
+fresh tree. The isolate's console output lands in the shell's log:
+`qs log -p "$OMARCHY_PATH/shell"`.
 
 **build** writes a self-contained, symlink-free folder: `manifest.json`
-with `entryPoints` and the `service` kind filled in, the three entry QML
-files, `app.js`, `bin/app.bpf.o` if there is BPF, the `yeetkit/` runtime,
-and the project's `README.md`, `LICENSE` and `preview.png`. Publish that
-folder as a git repository; `omarchy plugin add <url> --enable` installs
-it.
+with `entryPoints` filled in, `BarWidget.qml` and `Panel.qml`, `app.js`,
+`bin/app.bpf.o` if there is BPF, the `yeetkit/` runtime, and the project's
+`README.md`, `LICENSE` and `preview.png`. Publish that folder as a git
+repository; `omarchy plugin add <url> --enable` installs it.
 
-**check** asserts three layers against a real isolate: the folder has what
-the shell looks for; Node, speaking the QML client's protocol, gets a
-`mount` with a `<bar>`, no island, and a patch back for a click; and, when
-`qml6` is installed, the actual `Yeetkit.qml` and nodes run headless under
-it against stubs of the shell's components in `test/stubs/`, reached over
-an HTTP bridge because plain QtQuick has no WebSocket. The entry files
-need Quickshell and are not loaded there.
+**check** runs the isolate exactly as `Isolate.qml` does — under `script`
+— and asserts three layers: the folder has what the shell looks for; Node,
+speaking the QML client's protocol over the process's stdio, gets a
+`mount` with a `<bar>`, no island, and a patch back for a click; and,
+when `qml6` is installed, the actual `Yeetkit.qml` and nodes run headless
+under it against stubs of the shell's components in `test/stubs/`,
+reached over an HTTP bridge because plain QtQuick has no Process. The
+stdio transport and the singleton are loaded there against doubles of
+`Quickshell.Io`, enough to catch a typo and to see the command line they
+would run. The entry files need Quickshell and are not loaded.
 
 ## Project layout
 
 ```
 manifest.json         the Omarchy manifest; entryPoints are filled in
-yeetkit.config.js     ws (the portal port), direct, console, out
+yeetkit.config.js     out, yeetArgs
 app/page.jsx          the plugin
 bpf/*.bpf.c           optional; Makefile and build/ come from yeetkit
 plugin/               build output — the plugin folder
 ```
 
-Pick a distinct `ws` port per plugin: two plugins on one machine must not
-share one. Direct mode (`direct: true`) moves the view to the console lane
-on a second port, which is worth it when a panel renders more than ~64 KiB
-in one frame — the tty lane is a PTY and drops bytes past that.
-
 ## Status
 
 Verified here, on a machine without Omarchy: the build, the wire against a
-real isolate, and the QML client and vocabulary under `qml6` with stubbed
-shell components. Not yet verified: the entry files inside a running
-Quattro shell, and `qt6-websockets` on the shell's side. The stubs in
-`test/stubs/` mirror the properties the nodes use from the real
+real isolate over stdio under `script`, and the QML client and vocabulary
+under `qml6` with stubbed shell components. Not yet verified: the entry
+files and `Isolate.qml`'s Process inside a running Quattro shell. The
+stubs in `test/stubs/` mirror the properties the nodes use from the real
 `shell/Ui` and `shell/Commons`; where the real components differ, the
 nodes are what to fix.

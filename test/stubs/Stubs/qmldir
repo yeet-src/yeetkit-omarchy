@@ -1,0 +1,2 @@
+module Stubs
+singleton Stubs 1.0 Stubs.qml

@@ -1,14 +1,17 @@
 import QtQuick
+import Stubs
 
 /* Drives a built plugin's QML client against a real isolate, headless.
  *
- *   qml6 -I test/stubs test/harness.qml -- <plugin-dir> <tty-url> [<view-url>]
+ *   qml6 -I test/stubs test/harness.qml -- <plugin-dir> <bridge-url>
  *
  * Loads `<plugin-dir>/yeetkit/Yeetkit.qml` with the poll transport,
  * waits for the tree, and reports what it built as `HARNESS {json}`
  * lines for check.mjs to read. The entry files are not loaded — they
  * need Quickshell — so what is covered is the client and the node
- * vocabulary against stubs of the shell's components.
+ * vocabulary against stubs of the shell's components, plus that the
+ * stdio transport and the Isolate singleton load against doubles of
+ * Quickshell.Io and would run the right command.
  */
 Item {
   id: root
@@ -107,7 +110,19 @@ Item {
     var at = args.indexOf("--")
     var dir = args[at + 1]
     var url = args[at + 2]
-    var viewUrl = args[at + 3] || ""
+
+    /* The production transport, against the Quickshell.Io doubles: it
+     * has to load, attach to the singleton, and start the process. */
+    var stdio = Qt.createComponent("file://" + dir + "/yeetkit/StdioTransport.qml")
+    if (stdio.status === Component.Error) { say({ event: "error", where: "StdioTransport.qml", message: stdio.errorString() }) }
+    else {
+      var handle = stdio.createObject(root, {})
+      if (!handle) say({ event: "error", where: "StdioTransport.qml", message: stdio.errorString() })
+      else {
+        say({ event: "stdio", live: handle.live, command: Stubs.lastCommand })
+        handle.destroy()
+      }
+    }
 
     var poll = Qt.createComponent(Qt.resolvedUrl("PollTransport.qml"))
     if (poll.status === Component.Error) { say({ event: "error", where: "PollTransport", message: poll.errorString() }); Qt.quit(); return }
@@ -115,10 +130,12 @@ Item {
     var kit = Qt.createComponent("file://" + dir + "/yeetkit/Yeetkit.qml")
     if (kit.status === Component.Error) { say({ event: "error", where: "Yeetkit.qml", message: kit.errorString() }); Qt.quit(); return }
 
-    client = kit.createObject(root, { url: url, viewUrl: viewUrl, transportComponent: poll })
+    client = kit.createObject(root, { transportComponent: poll })
     if (!client) { say({ event: "error", where: "createObject", message: kit.errorString() }); Qt.quit(); return }
 
     client.applied.connect(function () { root.patches++ })
+    /* The poll transport is created by the client with no url; hand it one. */
+    if (client.lane) client.lane.url = url
     client.regionChanged.connect(host)
     client.stateChanged.connect(function () {
       if (client.state === "live" && !settle.running) settle.start()

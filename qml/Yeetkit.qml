@@ -2,7 +2,9 @@ import QtQuick
 import "Protocol.js" as Protocol
 
 /* The shell half of a yeetkit app: a mirror of the tree the isolate
- * holds, built out of QML items instead of DOM nodes.
+ * holds, built out of QML items instead of DOM nodes. The isolate
+ * itself is the plugin's Isolate singleton; this talks to it through
+ * a transport with a socket's shape.
  *
  * It knows nothing about the application. It keeps a map of id ->
  * record, applies the patches that arrive, sends events back up, and
@@ -21,14 +23,15 @@ import "Protocol.js" as Protocol
  */
 Item {
   id: client
-  visible: false
+  /* Nodes are born as children of this item and read their defaults
+   * here before an entry file reparents them, so it has to be visible
+   * — `visible` on a child of an invisible item reads false — while
+   * showing nothing: zero size and clipped. */
+  visible: true
+  clip: true
   width: 0
   height: 0
 
-  /** The isolate's tty portal: events up, and the view down unless `viewUrl` is set. */
-  property string url: ""
-  /** Direct mode: the console lane, carrying the view alone. */
-  property string viewUrl: ""
   /** The host bar, for the chrome a bar node borrows from it. */
   property var bar: null
   property string path: "/"
@@ -43,7 +46,7 @@ Item {
   /** Set by an input node while it holds focus, so a panel's key catcher stands aside. */
   property bool inputFocus: false
 
-  /** A transport component to use instead of the WebSocket one — tests swap this in. */
+  /** A transport component to use instead of the stdio one — tests swap this in. */
   property Component transportComponent: null
 
   signal regionChanged(string name, Item item)
@@ -56,8 +59,8 @@ Item {
   // ---- the wire --------------------------------------------------------
 
   property var lane: null
-  property var viewLane: null
   property var framer: null
+  property int helloTries: 0
 
   Component.onCompleted: connect()
 
@@ -67,39 +70,49 @@ Item {
       function (patch) { apply(patch) },
       function (error, body) { console.warn("yeetkit: bad frame: " + error + " " + body) }
     )
-    var component = transportComponent || Qt.createComponent(Qt.resolvedUrl("WebSocketTransport.qml"))
+    var component = transportComponent || Qt.createComponent(Qt.resolvedUrl("StdioTransport.qml"))
     if (component.status === Component.Error) {
       console.warn("yeetkit: transport failed to load: " + component.errorString())
       return
     }
-    lane = openLane(component, url)
-    if (viewUrl !== "") viewLane = openLane(component, viewUrl)
-  }
-
-  function openLane(component, address) {
-    var made = component.createObject(client, { url: address })
-    if (!made) {
+    lane = component.createObject(client, {})
+    if (!lane) {
       console.warn("yeetkit: transport failed: " + component.errorString())
-      return null
+      return
     }
-    made.message.connect(function (text) { framer(text) })
-    made.opened.connect(hello)
-    made.closed.connect(dropped)
-    return made
+    lane.message.connect(function (text) { framer(text) })
+    lane.opened.connect(hello)
+    lane.closed.connect(dropped)
+    if (lane.live) hello()
   }
 
-  /* `hello` is what sends the tree, and in direct mode the tree comes
-   * back on the other socket — so it waits until both are open, and is
-   * repeated whenever either one comes back. */
+  /* `hello` is what sends the tree. The isolate cannot see a peer
+   * arrive, and over a PTY a line written before its key listener is
+   * up can be lost — so hello repeats until the mount answers it. */
   function hello() {
     if (!lane || !lane.live) return
-    if (viewLane && !viewLane.live) return
     state = "connected"
+    helloTries = 0
     up({ t: "hello", path: path })
+    helloRetry.restart()
+  }
+
+  property Timer helloRetry: Timer {
+    interval: 700
+    repeat: true
+    onTriggered: {
+      if (client.state === "live" || !client.lane || !client.lane.live || client.helloTries > 40) {
+        stop()
+        return
+      }
+      client.helloTries += 1
+      client.up({ t: "hello", path: client.path })
+    }
   }
 
   function dropped() {
     state = "reconnecting"
+    helloRetry.stop()
   }
 
   function up(message) {
@@ -162,7 +175,7 @@ Item {
 
     var component = componentFor(spec.tag)
     /* The client is the QObject parent — that is what keeps the item
-     * alive until `destroy` — and the slot it is shown in is only its
+     * alive until `dispose` — and the slot it is shown in is only its
      * visual parent, set when it is placed. */
     var item = component.createObject(client, { client: client, nodeId: spec.id })
     if (!item) {
@@ -277,9 +290,12 @@ Item {
     if (rec.on[type]) up({ t: "event", id: rec.id, type: type, payload: payload || {} })
   }
 
-  function destroy(rec) {
+  /* Not `destroy`: an unqualified call to a function by that name
+   * resolves to the Item's own built-in destroy(), and takes the record
+   * as a delay — which tears down the client itself. */
+  function dispose(rec) {
     if (rec.kids) {
-      for (var i = 0; i < rec.kids.length; i++) destroy(rec.kids[i])
+      for (var i = 0; i < rec.kids.length; i++) dispose(rec.kids[i])
     }
     if (rec.item) {
       if (isRegion(rec.tag)) unregister(rec)
@@ -308,7 +324,7 @@ Item {
 
   function reset() {
     var root = nodes[0]
-    if (root) destroy(root)
+    if (root) dispose(root)
     nodes = {}
     regions = {}
   }
@@ -356,7 +372,7 @@ Item {
           var index = owner.kids.indexOf(gone)
           if (index >= 0) owner.kids.splice(index, 1)
         }
-        destroy(gone)
+        dispose(gone)
         if (owner && gone.text !== undefined) retext(owner)
         break
       }

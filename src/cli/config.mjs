@@ -3,13 +3,14 @@
  *   app/                 the yeetkit app — pages, layouts, "use yeet" modules
  *   manifest.json        the Omarchy manifest, as the shell will read it;
  *                        `entryPoints` is filled in by the build
- *   yeetkit.config.js    optional: title, ws, direct, console, out
+ *   yeetkit.config.js    optional: title, out, yeetArgs
  *   bpf/                 optional, compiled by the build as in yeetkit
  *
  * The build's output is a complete plugin folder — the thing `omarchy
  * plugin add` clones and the shell loads. It has to be self-contained
  * and symlink-free, so the QML runtime is copied into it rather than
- * referenced, and the isolate bundle sits beside it as `app.js`.
+ * referenced, and the isolate bundle sits beside it as `app.js`. The
+ * plugin's own QML runs the isolate over its stdio; there is no port.
  */
 
 import { readFile } from "node:fs/promises";
@@ -25,10 +26,10 @@ export const KINDS = {
   bar: { entryPoint: "bar", file: "Bar.qml" },
 };
 
-/* The kinds this runtime can render. `bar` — a whole-bar replacement —
- * is not one of them yet, and `service` is added by the build rather
- * than declared: it is where the isolate is supervised. */
-export const RENDERABLE = ["bar-widget", "panel", "overlay", "menu"];
+/* The kinds this runtime can render. A bar widget carries its own
+ * panel, as the first-party clock does; standalone `panel`, `overlay`,
+ * `menu` and whole-bar `bar` plugins need entry files not written yet. */
+export const RENDERABLE = ["bar-widget"];
 
 export const pluginsDir = () => join(homedir(), ".config", "omarchy", "plugins");
 
@@ -54,9 +55,7 @@ export async function loadConfig(root, argv = []) {
   }
   validateManifest(manifest);
 
-  const wsPort = Number(flag("ws", loaded.ws ?? 3401));
-  const direct = argv.includes("--direct") ? true : argv.includes("--no-direct") ? false : Boolean(loaded.direct);
-  const consolePort = Number(flag("console", loaded.console ?? wsPort + 1));
+  const yeetArgs = Array.isArray(loaded.yeetArgs) ? loaded.yeetArgs.map(String) : [];
 
   return {
     root,
@@ -67,9 +66,8 @@ export async function loadConfig(root, argv = []) {
     dist: resolve(root, flag("out", loaded.out ?? "plugin")),
     install: join(pluginsDir(), manifest.id),
     title: loaded.title ?? manifest.name,
-    wsPort,
-    direct,
-    consolePort,
+    /* Extra arguments for `yeet run`, e.g. ["--heap-limit", "1GiB"]. */
+    yeetArgs,
     manifest,
     kinds: manifest.kinds.filter((kind) => RENDERABLE.includes(kind)),
   };
@@ -90,9 +88,8 @@ function validateManifest(manifest) {
   } else {
     for (const kind of manifest.kinds) {
       if (!(kind in KINDS)) problems.push(`unknown kind "${kind}"`);
-      else if (!RENDERABLE.includes(kind) && kind !== "service") problems.push(`kind "${kind}" is not supported by yeetkit-omarchy`);
+      else if (!RENDERABLE.includes(kind)) problems.push(`kind "${kind}" is not supported by yeetkit-omarchy yet — only bar-widget is`);
     }
-    if (!manifest.kinds.some((kind) => RENDERABLE.includes(kind))) problems.push("at least one of bar-widget, panel, overlay, menu is needed");
   }
   if (manifest.kinds?.includes("bar-widget") && manifest.barWidget?.defaultSection !== undefined) {
     if (!["left", "center", "right"].includes(manifest.barWidget.defaultSection)) {

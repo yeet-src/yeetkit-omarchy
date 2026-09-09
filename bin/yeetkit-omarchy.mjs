@@ -4,7 +4,7 @@
  *   yeetkit-omarchy new <name> [--id io.github.you.name]
  *                              a plugin project to start from
  *   yeetkit-omarchy dev        build into ~/.config/omarchy/plugins/<id>,
- *                              run the isolate, rebuild on change
+ *                              rebuild on change
  *   yeetkit-omarchy build      the plugin folder, in plugin/
  *   yeetkit-omarchy check      drive a built plugin over a real portal
  */
@@ -59,8 +59,7 @@ switch (command) {
     const { loadConfig } = await import("../src/cli/config.mjs");
     const config = await loadConfig(root, argv).catch(fail);
     const script = join(here, "..", "src", "cli", "check.mjs");
-    const args = [script, config.dist, "--ws", String(config.wsPort + 90)];
-    if (config.direct) args.push("--console", String(config.consolePort + 90));
+    const args = [script, config.dist];
     const code = await new Promise((done) => {
       spawn(process.execPath, args, { stdio: "inherit" }).on("exit", (c) => done(c ?? 1));
     });

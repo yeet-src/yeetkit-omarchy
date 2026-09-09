@@ -7,8 +7,6 @@ machine and renders into the bar over a local WebSocket.
 ## Requirements
 
 - [yeet](https://yeet.cx) — `yeet` on `PATH` with the daemon running
-- `qt6-websockets` — the QML WebSocket module Omarchy does not ship:
-  `sudo pacman -S qt6-websockets`
 
 ## Install
 
@@ -16,9 +14,10 @@ machine and renders into the bar over a local WebSocket.
 omarchy plugin add <this repository's url> --enable
 ```
 
-The plugin starts one isolate (`yeet run` on `app.js`, tty bound to
-`ws://127.0.0.1:3401`) and the bar widget connects to it. Nothing else is
-installed or run.
+The plugin runs one isolate — `yeet run app.js` under `script`, so it has a
+terminal — and talks to it over that process's stdin and stdout. No port
+is opened and nothing else is installed or run; the isolate stops a few
+seconds after the last bar widget goes away.
 
 ## Remove
 
