@@ -77,13 +77,6 @@ switch (command) {
     await mkdir(target, { recursive: true });
     await cp(join(here, "..", "templates", "default"), target, { recursive: true });
 
-    /* The BPF build lives in yeetkit's template and is copied from
-     * there, so `bpf/*.bpf.c` works the moment it exists. */
-    const yeetkitTemplate = join(dirname(await resolveYeetkit()), "templates", "default");
-    for (const file of ["Makefile", "build", "tsconfig.json"]) {
-      await cp(join(yeetkitTemplate, file), join(target, file), { recursive: true }).catch(() => {});
-    }
-
     const fill = async (file) => {
       const path = join(target, file);
       const text = await readFile(path, "utf8");
@@ -124,13 +117,4 @@ switch (command) {
   default:
     console.error(`unknown command "${command}"; try dev, build, check or new`);
     process.exit(1);
-}
-
-async function resolveYeetkit() {
-  const { createRequire } = await import("node:module");
-  const require = createRequire(import.meta.url);
-  /* The exports map hides package.json, so go through a file it does
-   * expose and walk up to the package root. */
-  const entry = require.resolve("yeetkit/src/cli/bpf.mjs");
-  return join(dirname(entry), "..", "..", "package.json");
 }

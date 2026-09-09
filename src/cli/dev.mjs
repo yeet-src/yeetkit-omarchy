@@ -12,7 +12,7 @@
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 
-import { sources, watchLoop } from "yeetkit/src/cli/watch.mjs";
+import { sources, watchLoop } from "./watch.mjs";
 
 import { QML, buildIsolate, writePlugin } from "./build.mjs";
 import { loadConfig } from "./config.mjs";

@@ -1,21 +1,19 @@
 # yeetkit-omarchy
 
-Omarchy shell plugins written as [yeetkit](../yeetkit) apps. A SolidJS page
+Omarchy shell plugins written as [yeetkit](https://github.com/yeet-src/yeetkit) apps. A SolidJS page
 runs **inside a yeet isolate** on the machine and renders into the Quattro
 bar — and the panel under it — over the isolate's own tty. There is no
 QML to write, and no port: the shell receives patches on a pipe.
 
 ## Getting started
 
-The framework depends on [yeetkit](https://github.com/yeet-src/yeetkit)
-as a sibling checkout (`file:../yeetkit`), so clone both next to each
-other:
+The repository is self-contained: the isolate runtime and build pipeline
+are copied in from [yeetkit](https://github.com/yeet-src/yeetkit) (see
+[UPSTREAM.md](UPSTREAM.md)), so one clone is enough.
 
 ```sh
-cd ~/src
-git clone git@github.com:yeet-src/yeetkit.git
 git clone git@github.com:yeet-src/yeetkit-omarchy.git
-cd yeetkit && npm install && cd ../yeetkit-omarchy && npm install
+cd yeetkit-omarchy && npm install
 npm i -g --prefix ~/.local .        # puts `yeetkit-omarchy` on PATH, as a symlink
 ```
 
@@ -69,8 +67,9 @@ Enter. There is no port, no socket, no Node hub, and nothing another user
 on the machine can dial. Frames of a megabyte cross the PTY intact.
 
 The page is ordinary yeetkit — `createSignal`, `<Index>`, `onCleanup`,
-`yeet.graph`, `"use yeet"` modules, BPF objects from `bpf/`. Two elements
-are special:
+`yeet.graph`, `"use yeet"` modules, BPF objects from `bpf/` — and imports
+from `"yeetkit"`, which the bundler resolves to the runtime vendored here.
+Two elements are special:
 
 ```jsx
 export default function Page() {

@@ -1,8 +1,9 @@
 /* The build: the app for the isolate, and the folder for the shell.
  *
  * The isolate half is yeetkit's own pipeline — routes, entry, Babel
- * for Solid's universal renderer, esbuild for one neutral bundle — run
- * with two of its three runtimes ruled out. A plugin has no browser,
+ * for Solid's universal renderer, esbuild for one neutral bundle —
+ * vendored here (see UPSTREAM.md) and run with two of its three
+ * runtimes ruled out. A plugin has no browser,
  * so a `"use client"` island has nowhere to mount; and it has no Node
  * hub, so a `"use server"` call would wait forever. Both fail the
  * build with a message rather than failing the user at runtime.
@@ -24,9 +25,9 @@ import { access, cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/pro
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { hasBpf, make, place } from "yeetkit/src/cli/bpf.mjs";
-import { createBundler, entryModule } from "yeetkit/src/cli/bundle.mjs";
-import { collectRoutes, renderRouteModule } from "yeetkit/src/cli/routes.mjs";
+import { hasBpf, make, place } from "./bpf.mjs";
+import { createBundler, entryModule } from "./bundle.mjs";
+import { collectRoutes, renderRouteModule } from "./routes.mjs";
 
 import { KINDS } from "./config.mjs";
 
