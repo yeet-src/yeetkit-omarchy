@@ -1,0 +1,22 @@
+{
+  "name": "yeetkit-omarchy",
+  "version": "0.1.0",
+  "description": "Omarchy shell plugins written as yeetkit apps: SolidJS pages that run inside a yeet isolate and render into the Quattro bar and its panels over the tty portal.",
+  "type": "module",
+  "bin": {
+    "yeetkit-omarchy": "./bin/yeetkit-omarchy.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "qml",
+    "templates"
+  ],
+  "dependencies": {
+    "ws": "^8.21.3",
+    "yeetkit": "file:../yeetkit"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

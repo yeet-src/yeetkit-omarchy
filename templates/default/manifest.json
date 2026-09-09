@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "__ID__",
+  "name": "__NAME__",
+  "version": "0.1.0",
+  "author": "Your name",
+  "license": "MIT",
+  "description": "A yeetkit app in the Omarchy bar: process count, with the top consumers in a panel.",
+  "kinds": ["bar-widget"],
+  "barWidget": {
+    "displayName": "__NAME__",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

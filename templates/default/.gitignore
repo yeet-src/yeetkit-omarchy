@@ -1,0 +1,4 @@
+node_modules/
+.yeetkit/
+plugin/
+bin/*.o
