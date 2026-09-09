@@ -12,6 +12,7 @@
     "qml",
     "templates",
     "test",
+    "LICENSE",
     "UPSTREAM.md"
   ],
   "dependencies": {
@@ -26,5 +27,6 @@
   },
   "allowScripts": {
     "esbuild@0.28.2": true
-  }
+  },
+  "license": "Apache-2.0"
 }
