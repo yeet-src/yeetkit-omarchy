@@ -7,6 +7,11 @@ import qs.Commons
 //   size   caption | bodySmall | body | subtitle | title | heading | display | displayLarge
 //   fill   in a column: the full width; in a row: whatever the other
 //          children leave — one per row
+//   heat   0..1, a colour taken from the theme rather than named: 0 is
+//          `muted`, 0.5 is `accent`, 1 is `urgent`, interpolated. Lets a
+//          page draw a gradient that still follows the user's theme.
+//          Set it and it wins over `tone`; leave it unset (-1) and
+//          nothing changes.
 Text {
   id: root
   property var client: null
@@ -20,6 +25,18 @@ Text {
   property bool fill: false
   property bool wrap: false
   property string align: "left"
+  property real heat: -1
+
+  function mixColor(a, b, t) {
+    return Qt.rgba(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t,
+                   a.b + (b.b - a.b) * t, a.a + (b.a - a.a) * t)
+  }
+
+  /* Two segments, so `accent` sits at the midpoint and a theme that
+   * makes accent equal to foreground still ramps to urgent. */
+  readonly property color heatColor: heat < 0.5
+    ? mixColor(Color.muted, Color.accent, Math.max(0, heat) * 2)
+    : mixColor(Color.accent, Color.urgent, (Math.min(1, heat) - 0.5) * 2)
 
   readonly property bool inRow: parent ? parent.axis === "x" : false
 
@@ -44,7 +61,8 @@ Text {
     }
     return Math.max(0, row.width - used - row.spacing * Math.max(0, shown - 1))
   }
-  color: tone === "muted" ? Color.muted
+  color: heat >= 0 ? heatColor
+       : tone === "muted" ? Color.muted
        : tone === "accent" ? Color.accent
        : tone === "urgent" ? Color.urgent
        : tone === "bar" && client && client.bar ? client.bar.barForeground

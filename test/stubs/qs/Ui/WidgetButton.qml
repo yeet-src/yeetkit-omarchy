@@ -9,6 +9,12 @@ Item {
   property string text: ""
   property string tooltipText: ""
   property bool active: false
+  /* The real WidgetButton exposes these, and <bar heat> binds
+   * `foreground`; without them the node fails to instantiate here while
+   * working against the shell. */
+  property color foreground: Color.foreground
+  property color activeColor: Color.urgent
+  property bool useActiveColor: true
   property bool dimmed: false
   property bool keepSpace: false
   property bool pressable: true
@@ -22,6 +28,6 @@ Item {
   visible: hasVisualContent || keepSpace
   implicitWidth: Math.max(12, label.implicitWidth + 17)
   implicitHeight: 26
-  Text { id: label; anchors.centerIn: parent; text: root.text; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.body }
+  Text { id: label; anchors.centerIn: parent; text: root.text; color: root.active && root.useActiveColor ? root.activeColor : root.foreground; font.family: Style.font.family; font.pixelSize: Style.font.body }
   MouseArea { anchors.fill: parent; acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton; onClicked: function (mouse) { root.pressed(mouse.button) } }
 }
