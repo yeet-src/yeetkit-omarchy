@@ -11,7 +11,9 @@ PanelSlider {
   signal ev(string type, var payload)
 
   bar: client ? client.bar : null
-  width: parent ? parent.width : implicitWidth
+  readonly property bool inRow: parent ? parent.axis === "x" : false
+  anchors.left: parent && !inRow ? parent.left : undefined
+  anchors.right: parent && !inRow ? parent.right : undefined
 
   onMoved: function (next) { ev("input", { value: next }) }
   onReleased: function (next) { ev("change", { value: next }) }

@@ -65,7 +65,7 @@ Item {
 
   function run1() {
     feed(tree())
-    assert("a mount makes the client live", client.state === "live", client.state)
+    assert("a mount makes the client live", client.phase === "live", client.phase)
     assert("hello was sent on open", sent.length === 1 && sent[0].length > 0, sent.length)
     assert("regions are registered", client.regions.bar && client.regions.panel, Object.keys(client.regions))
     assert("bar text is the join of its segments", client.regions.bar.text === "3 procs", client.regions.bar.text)
@@ -116,12 +116,12 @@ Item {
     assert("a removed node leaves its slot", JSON.stringify(kidsText(client.regions.panel)) === '["A","C","Save 2",""]', JSON.stringify(kidsText(client.regions.panel)))
     // a second mount — what a reconnect produces — must rebuild, not tear the client down
     feed(tree())
-    assert("a second mount is applied", client.state === "live" && client.regions.bar && client.regions.bar.text === "3 procs")
+    assert("a second mount is applied", client.phase === "live" && client.regions.bar && client.regions.bar.text === "3 procs")
     step3.start()
   }
 
   function run3() {
-    assert("the client survives a second mount", root.client !== null && root.client.state === "live", root.client ? root.client.state : "destroyed")
+    assert("the client survives a second mount", root.client !== null && root.client.phase === "live", root.client ? root.client.phase : "destroyed")
     assert("the old regions were replaced", stage.children.length === 2, stage.children.length)
     say({ done: true })
     Qt.quit()

@@ -37,9 +37,9 @@ Item {
   property string path: "/"
   property string title: ""
 
-  /** connecting | connected | live | reconnecting */
-  property string state: "connecting"
-  readonly property bool live: state === "live"
+  /** connecting | connected | live | reconnecting. (Not `state`: an Item has one, for States.) */
+  property string phase: "connecting"
+  readonly property bool live: phase === "live"
 
   /** Region name -> its Item, as the tree stands now. */
   property var regions: ({})
@@ -91,7 +91,7 @@ Item {
    * up can be lost — so hello repeats until the mount answers it. */
   function hello() {
     if (!lane || !lane.live) return
-    state = "connected"
+    phase = "connected"
     helloTries = 0
     up({ t: "hello", path: path })
     helloRetry.restart()
@@ -101,7 +101,7 @@ Item {
     interval: 700
     repeat: true
     onTriggered: {
-      if (client.state === "live" || !client.lane || !client.lane.live || client.helloTries > 40) {
+      if (client.phase === "live" || !client.lane || !client.lane.live || client.helloTries > 40) {
         stop()
         return
       }
@@ -111,7 +111,7 @@ Item {
   }
 
   function dropped() {
-    state = "reconnecting"
+    phase = "reconnecting"
     helloRetry.stop()
   }
 
@@ -348,7 +348,7 @@ Item {
           rootRec.kids.push(kid)
           place(rootRec, kid, null)
         }
-        state = "live"
+        phase = "live"
         break
       }
 

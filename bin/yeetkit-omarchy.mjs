@@ -59,7 +59,7 @@ switch (command) {
     const { loadConfig } = await import("../src/cli/config.mjs");
     const config = await loadConfig(root, argv).catch(fail);
     const script = join(here, "..", "src", "cli", "check.mjs");
-    const args = [script, config.dist];
+    const args = [script, config.dist, ...argv.slice(1).filter((a) => a.startsWith("--") && a !== "--dir")];
     const code = await new Promise((done) => {
       spawn(process.execPath, args, { stdio: "inherit" }).on("exit", (c) => done(c ?? 1));
     });

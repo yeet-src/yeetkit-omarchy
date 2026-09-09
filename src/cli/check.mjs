@@ -210,6 +210,7 @@ if (mount) {
 
 // ---- qml ------------------------------------------------------------
 
+let server = null;
 console.log("\nqml");
 const qml6 = await new Promise((resolve) => {
   /* Only whether the binary is there: `error` fires when it is not. */
@@ -248,7 +249,7 @@ if (!qml6) {
   const lane = { frames: chunks, get open() { return isolateUp; } };
   const bridged = new Map([["tty", lane]]);
 
-  const server = createServer(async (request, response) => {
+  server = createServer(async (request, response) => {
     const url = new URL(request.url, "http://x");
     const [, name, verb] = url.pathname.split("/");
     const lane = bridged.get(name);
@@ -274,42 +275,48 @@ if (!qml6) {
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   const http = `http://127.0.0.1:${server.address().port}`;
 
-  const args = ["-I", join(here, "..", "..", "test", "stubs"), join(here, "..", "..", "test", "harness.qml"), "--", dist, `${http}/tty`];
-  const run = spawn("qml6", args, {
-    env: { ...process.env, QT_QPA_PLATFORM: "offscreen", QT_FORCE_STDERR_LOGGING: "1" },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-
-  const events = [];
-  const noise = [];
-  const onLine = (line) => {
-    const m = /HARNESS (.*)$/.exec(line);
-    if (m) {
-      try {
-        events.push(JSON.parse(m[1]));
-      } catch {
-        noise.push(line);
-      }
-    } else if (line.trim()) noise.push(line.replace(/^qml: /, ""));
-  };
-  for (const stream of [run.stdout, run.stderr]) {
-    let buffer = "";
-    stream.on("data", (chunk) => {
-      buffer += chunk;
-      const lines = buffer.split("\n");
-      buffer = lines.pop();
-      lines.forEach(onLine);
+  /* Runs one QML test file under qml6 and collects its `PREFIX {json}`
+   * lines and everything else it printed. */
+  const runQml = async (file, prefix, extra) => {
+    const args = ["-I", join(here, "..", "..", "test", "stubs"), join(here, "..", "..", "test", file), "--", dist, ...extra];
+    const run = spawn("qml6", args, {
+      env: { ...process.env, QT_QPA_PLATFORM: "offscreen", QT_FORCE_STDERR_LOGGING: "1" },
+      stdio: ["ignore", "pipe", "pipe"],
     });
-  }
-  const timer = setTimeout(() => run.kill("SIGKILL"), 15000);
-  const code = await new Promise((r) => run.on("exit", (c) => r(c)));
-  clearTimeout(timer);
-  server.close();
+    const events = [];
+    const noise = [];
+    const onLine = (line) => {
+      const m = new RegExp(`${prefix} (.*)$`).exec(line);
+      if (m) {
+        try {
+          events.push(JSON.parse(m[1]));
+        } catch {
+          noise.push(line);
+        }
+      } else if (line.trim()) noise.push(line.replace(/^qml: /, ""));
+    };
+    for (const stream of [run.stdout, run.stderr]) {
+      let buffer = "";
+      stream.on("data", (chunk) => {
+        buffer += chunk;
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+        lines.forEach(onLine);
+      });
+      stream.on("end", () => buffer.trim() && onLine(buffer));
+    }
+    const timer = setTimeout(() => run.kill("SIGKILL"), 15000);
+    const code = await new Promise((r) => run.on("exit", (c) => r(c)));
+    clearTimeout(timer);
+    if (process.argv.includes("--verbose")) {
+      for (const e of events) console.log(`  ${prefix.toLowerCase().padEnd(8)} ${JSON.stringify(e)}`);
+      for (const l of noise) console.log(`  qml      ${l}`);
+    }
+    const warnings = noise.filter((l) => !/diskcache/.test(l) && /yeetkit:|Error|error|Warning|Binding loop|non-existent|TypeError|ReferenceError/.test(l));
+    return { code, events, noise, warnings };
+  };
 
-  if (process.argv.includes("--verbose")) {
-    for (const e of events) console.log(`  harness  ${JSON.stringify(e)}`);
-    for (const l of noise) console.log(`  qml      ${l}`);
-  }
+  const { code, events, warnings: qmlWarnings } = await runQml("harness.qml", "HARNESS", [`${http}/tty`]);
   const find = (name) => events.find((e) => e.event === name);
   check("the harness ran", code === 0 && Boolean(find("done")), `exit ${code}; ${events.map((e) => e.event).join(",") || noise.slice(0, 3).join(" | ")}`);
   const error = find("error");
@@ -336,13 +343,50 @@ if (!qml6) {
     const toggled = find("toggled");
     if (toggled) check("a controlled <toggle> followed the app's state", toggled.after === !toggled.before, JSON.stringify(toggled));
   }
-  const qmlWarnings = noise.filter((l) => !/diskcache/.test(l) && /yeetkit:|Error|error|Warning|non-existent|TypeError|ReferenceError/.test(l));
   check("no QML warnings", qmlWarnings.length === 0, qmlWarnings.slice(0, 5).join(" | "));
+
+  /* The entry files, with the singleton's stub Process wired to the
+   * same bridge. */
+  console.log("\nentries");
+  const entry = await runQml("entry.qml", "ENTRY", [`${http}/tty`]);
+  const entryDone = entry.events.find((e) => e.done !== undefined);
+  const entryWhy = entryDone?.detail ?? (entry.events.some((e) => e.event === "timeout") ? "timed out" : entry.noise.slice(0, 3).join(" | "));
+  check("BarWidget.qml and Panel.qml ran under qml6", entry.code === 0 && entryDone?.done === true, entryWhy);
+  for (const r of entry.events.filter((r) => r.label)) check(r.label, r.ok, r.detail ?? "");
+  check("no QML warnings from the entries", entry.warnings.length === 0, entry.warnings.slice(0, 5).join(" | "));
+
+  /* qmllint, when present: syntax and the typed half of the API. Its
+   * notes about members it cannot see on `var` and Loader items are
+   * the same ones the first-party plugins produce, so they inform
+   * rather than fail. */
+  const qmllint = await new Promise((resolve) => {
+    const probe = spawn("/usr/lib/qt6/bin/qmllint", ["--help"], { stdio: "ignore" });
+    probe.on("error", () => resolve(false));
+    probe.on("exit", () => resolve(true));
+  });
+  if (qmllint) {
+    const files = [join(dist, "BarWidget.qml"), join(dist, "Panel.qml")];
+    for (const dir of ["yeetkit", "yeetkit/nodes"]) {
+      for (const name of await readdir(join(dist, dir))) if (name.endsWith(".qml")) files.push(join(dist, dir, name));
+    }
+    const lint = spawn("/usr/lib/qt6/bin/qmllint", ["-I", join(here, "..", "..", "test", "stubs"), "-I", dist, ...files], { stdio: ["ignore", "pipe", "pipe"] });
+    let text = "";
+    lint.stdout.on("data", (c) => (text += c));
+    lint.stderr.on("data", (c) => (text += c));
+    await new Promise((r) => lint.on("exit", r));
+    const lines = text.split("\n").filter((l) => /Warning|Error/.test(l));
+    const hard = lines.filter((l) => /Error|\[syntax|property-override|duplicate/.test(l));
+    const soft = lines.filter((l) => !hard.includes(l));
+    check("qmllint finds no errors or overrides", hard.length === 0, hard.slice(0, 5).map((l) => l.replace(dist + "/", "")).join(" | "));
+    if (soft.length) console.log(`  note  qmllint: ${soft.length} dynamic-typing notes (run with --verbose to list)`);
+    if (soft.length && process.argv.includes("--verbose")) for (const l of soft) console.log(`  lint     ${l.replace(dist + "/", "")}`);
+  } else skip("qmllint", "not installed");
 }
 
 finish();
 
 function finish() {
+  server?.close();
   isolate.kill("SIGTERM");
   console.log(failures === 0 ? "\nall checks passed" : `\n${failures} check${failures === 1 ? "" : "s"} failed`);
   setTimeout(() => process.exit(failures === 0 ? 0 : 1), 200);

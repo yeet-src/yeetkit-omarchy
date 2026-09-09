@@ -71,19 +71,19 @@ QtObject {
     }
     /* The daemon tears the portal down a moment after a run exits, so
      * an immediate respawn is met with "already mounted". */
-    onExited: function (code, status) { if (root.clients > 0) respawn.restart() }
+    onExited: function (code, status) { if (root.clients > 0) root.respawn.restart() }
   }
 
   property Timer respawn: Timer {
     interval: 1500
     repeat: false
-    onTriggered: if (root.clients > 0 && !process.running) process.running = true
+    onTriggered: if (root.clients > 0 && !root.process.running) root.process.running = true
   }
 
   property Timer stopTimer: Timer {
     interval: 5000
     repeat: false
-    onTriggered: if (root.clients === 0) process.running = false
+    onTriggered: if (root.clients === 0) root.process.running = false
   }
 
   property FileView watcher: FileView {

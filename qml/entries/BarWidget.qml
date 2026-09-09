@@ -35,8 +35,11 @@ BarWidget {
 
   onBarChanged: injectPanel()
 
+  /** The client, reachable by the panel and by tests. */
+  readonly property alias client: kit
+
   Kit.Yeetkit {
-    id: client
+    id: kit
     bar: root.bar
 
     /* A left click on the bar item reaches the app as an event, and —
@@ -69,7 +72,7 @@ BarWidget {
     visible: !root.barItem
     dimmed: true
     keepSpace: true
-    text: "·"
+    text: client.phase === "reconnecting" ? "…" : "·"
     tooltipText: "__NAME__ — waiting for the isolate"
     pressable: false
   }

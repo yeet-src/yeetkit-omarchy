@@ -12,6 +12,10 @@ Item {
   property bool dimmed: false
   property bool keepSpace: false
   property bool pressable: true
+  property bool concealed: false
+  property bool interactive: true
+  property real fixedWidth: -1
+  property real fixedHeight: -1
   property bool hasVisualContent: text !== ""
   signal pressed(int button)
   signal wheelMoved(int delta)

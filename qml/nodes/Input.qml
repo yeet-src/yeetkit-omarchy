@@ -13,7 +13,9 @@ TextField {
   property string value: ""
   property string placeholder: ""
 
-  width: parent ? parent.width : implicitWidth
+  readonly property bool inRow: parent ? parent.axis === "x" : false
+  anchors.left: parent && !inRow ? parent.left : undefined
+  anchors.right: parent && !inRow ? parent.right : undefined
   placeholderText: placeholder
 
   onValueChanged: if (text !== value) text = value

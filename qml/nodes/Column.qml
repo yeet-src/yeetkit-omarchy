@@ -11,7 +11,9 @@ Column {
 
   property int gap: Style.spacing.sm
   property bool fill: false
+  readonly property bool inRow: parent ? parent.axis === "x" : false
 
   spacing: gap
-  width: fill && parent ? parent.width : implicitWidth
+  anchors.left: fill && parent && !inRow ? parent.left : undefined
+  anchors.right: fill && parent && !inRow ? parent.right : undefined
 }

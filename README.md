@@ -144,8 +144,11 @@ Every node borrows the shell's theme through `qs.Commons.Color` and
 
 `tone` is `fg | muted | accent | urgent | bar`; `size` is a `Style.font`
 token: `caption bodySmall body subtitle title heading display displayLarge`.
-Inputs are controlled, as in yeetkit: the event says what the user asked
-for, the attribute says what the app decided.
+`fill` on a text in a column takes the full width; in a row it takes what
+the other children leave, so `<row fill><text fill>name</text><text>12
+MiB</text></row>` is a two-column line with the label eliding first. Inputs
+are controlled, as in yeetkit: the event says what the user asked for, the
+attribute says what the app decided.
 
 Keys the panel's `PanelKeyCatcher` sees — letters, arrows, Enter — are
 forwarded as `key` messages, so yeetkit's `onKey(handler)` works while the
@@ -188,15 +191,19 @@ with `entryPoints` filled in, `BarWidget.qml` and `Panel.qml`, `app.js`,
 repository; `omarchy plugin add <url> --enable` installs it.
 
 **check** runs the isolate exactly as `Isolate.qml` does — under `script`
-— and asserts three layers: the folder has what the shell looks for; Node,
+— and asserts four layers: the folder has what the shell looks for; Node,
 speaking the QML client's protocol over the process's stdio, gets a
-`mount` with a `<bar>`, no island, and a patch back for a click; and,
-when `qml6` is installed, the actual `Yeetkit.qml` and nodes run headless
-under it against stubs of the shell's components in `test/stubs/`,
-reached over an HTTP bridge because plain QtQuick has no Process. The
-stdio transport and the singleton are loaded there against doubles of
-`Quickshell.Io`, enough to catch a typo and to see the command line they
-would run. The entry files need Quickshell and are not loaded.
+`mount` with a `<bar>`, no island, and a patch back for a click; when
+`qml6` is installed, the client alone is unit-tested with a fake
+transport, then the actual `Yeetkit.qml` and nodes run headless against
+stubs of the shell's components in `test/stubs/`, reached over an HTTP
+bridge because plain QtQuick has no Process; and finally the generated
+`BarWidget.qml` and `Panel.qml` themselves are loaded with doubles of
+`qs.Ui`, `qs.Commons` and `Quickshell.Io`, their Isolate singleton's stub
+Process wired to the bridge, and the bar item, panel toggle and open
+event are asserted end to end. `qmllint` from qt6-declarative is run over
+the folder too when present; its dynamic-typing notes are reported, not
+failed.
 
 ## Project layout
 
@@ -211,9 +218,10 @@ plugin/               build output — the plugin folder
 ## Status
 
 Verified here, on a machine without Omarchy: the build, the wire against a
-real isolate over stdio under `script`, and the QML client and vocabulary
-under `qml6` with stubbed shell components. Not yet verified: the entry
-files and `Isolate.qml`'s Process inside a running Quattro shell. The
-stubs in `test/stubs/` mirror the properties the nodes use from the real
-`shell/Ui` and `shell/Commons`; where the real components differ, the
-nodes are what to fix.
+real isolate over stdio under `script`, and the QML client, vocabulary and
+generated entry files under `qml6` with doubles of the shell's components
+and of Quickshell's Process. Not yet verified: all of it inside a running
+Quattro shell, where the real `WidgetButton`, `KeyboardPanel` and layer
+shell behave as themselves. The doubles in `test/stubs/` mirror the
+properties the code uses from the real `shell/Ui` and `shell/Commons`;
+where the real components differ, the nodes and entries are what to fix.

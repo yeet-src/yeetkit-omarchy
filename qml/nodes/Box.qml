@@ -18,7 +18,10 @@ Rectangle {
   border.width: Style.normalBorderWidth
   border.color: Style.normalBorderColor
 
-  width: fill && parent ? parent.width : inner.implicitWidth + pad * 2
+  readonly property bool inRow: parent ? parent.axis === "x" : false
+  anchors.left: fill && parent && !inRow ? parent.left : undefined
+  anchors.right: fill && parent && !inRow ? parent.right : undefined
+  width: inner.implicitWidth + pad * 2
   implicitHeight: inner.implicitHeight + pad * 2
   height: implicitHeight
 

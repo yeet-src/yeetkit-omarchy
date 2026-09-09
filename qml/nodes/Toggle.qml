@@ -11,7 +11,9 @@ Toggle {
   property Item slot: null
   signal ev(string type, var payload)
 
-  width: parent ? parent.width : implicitWidth
+  readonly property bool inRow: parent ? parent.axis === "x" : false
+  anchors.left: parent && !inRow ? parent.left : undefined
+  anchors.right: parent && !inRow ? parent.right : undefined
 
   onClicked: ev("change", { checked: !checked })
 }

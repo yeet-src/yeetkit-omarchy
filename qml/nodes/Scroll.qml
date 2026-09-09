@@ -12,7 +12,10 @@ Flickable {
   property int maxHeight: Style.space(320)
   property int gap: Style.spacing.sm
 
-  width: parent ? parent.width : inner.implicitWidth
+  readonly property bool inRow: parent ? parent.axis === "x" : false
+  anchors.left: parent && !inRow ? parent.left : undefined
+  anchors.right: parent && !inRow ? parent.right : undefined
+  width: inner.implicitWidth
   implicitHeight: Math.min(inner.implicitHeight, maxHeight)
   height: implicitHeight
   contentWidth: width

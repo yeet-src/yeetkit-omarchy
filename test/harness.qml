@@ -52,7 +52,7 @@ Item {
       }
     }
     return {
-      state: client.state,
+      state: client.phase,
       title: client.title,
       tags: tags,
       listened: listened,
@@ -72,7 +72,7 @@ Item {
   Timer { id: settle; interval: 500; onTriggered: root.phase1() }
   Timer { id: afterClick; interval: 900; onTriggered: root.phase2() }
   Timer { id: afterToggle; interval: 900; onTriggered: root.phase3() }
-  Timer { id: giveUp; interval: 8000; onTriggered: { root.say({ event: "timeout", state: root.client ? root.client.state : "none" }); Qt.quit() } }
+  Timer { id: giveUp; interval: 8000; onTriggered: { root.say({ event: "timeout", state: root.client ? root.client.phase : "none" }); Qt.quit() } }
 
   function phase1() {
     say({ event: "live", summary: summary() })
@@ -137,8 +137,8 @@ Item {
     /* The poll transport is created by the client with no url; hand it one. */
     if (client.lane) client.lane.url = url
     client.regionChanged.connect(host)
-    client.stateChanged.connect(function () {
-      if (client.state === "live" && !settle.running) settle.start()
+    client.phaseChanged.connect(function () {
+      if (client.phase === "live" && !settle.running) settle.start()
     })
     giveUp.start()
     say({ event: "started", dir: dir, url: url })
