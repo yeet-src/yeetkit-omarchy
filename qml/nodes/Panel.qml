@@ -1,8 +1,14 @@
 import QtQuick
 import qs.Commons
 
-// <panel contentWidth gap open onOpen onClose>  the popup under the bar
-// widget. Children stack; the entry file anchors and frames it.
+// <panel contentWidth gap open onOpen onClose onCols>  the popup under
+// the bar widget. Children stack; the entry file anchors and frames it.
+//
+// `cols` goes shell -> app: the width the page can fill, in characters,
+// and the same less what a <box> spends on padding and border. The
+// shell's font is monospace, so a page that lays itself out as a
+// character grid needs this to know how wide to pad — it has no way to
+// measure text itself, and the width depends on the user's font size.
 //
 // `open` goes app -> shell: set it and the panel is shown or hidden.
 // `open`/`close` events go shell -> app, so a page can start a stream
@@ -20,6 +26,20 @@ Item {
 
   signal openRequested(bool wanted)
   onOpenChanged: if (open === true || open === false) openRequested(open)
+
+  FontMetrics {
+    id: metrics
+    font.family: Style.font.family
+    font.pixelSize: Style.font.body
+  }
+
+  readonly property real charWidth: metrics.advanceWidth("0")
+  readonly property int cols: charWidth > 0 ? Math.max(1, Math.floor(width / charWidth)) : 0
+  readonly property int boxCols: charWidth > 0
+    ? Math.max(1, Math.floor((width - Style.spacing.md * 2 - Style.normalBorderWidth * 2) / charWidth))
+    : 0
+
+  onColsChanged: ev("cols", { cols: cols, boxCols: boxCols })
 
   property bool shown: false
   function shellOpened(isOpen) {
