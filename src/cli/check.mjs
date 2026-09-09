@@ -129,7 +129,11 @@ isolate.stdout.on("data", (data) => {
   chunks.push(text);
   feed(text);
 });
-isolate.stderr.on("data", (c) => process.stderr.write(`isolate: ${c}`));
+isolate.stderr.on("data", (c) => {
+  /* `script` announces the shutdown we asked for; nothing else is expected here. */
+  const text = String(c).replace(/\s*(Session terminated, killing shell\.\.\.|\s\.\.\.killed\.)\s*/g, "");
+  if (text.trim()) process.stderr.write(`isolate: ${text}`);
+});
 const send = (message) => isolate.stdin.write(encode(message));
 await wait(2500);
 
