@@ -5,8 +5,23 @@ runs **inside a yeet isolate** on the machine and renders into the Quattro
 bar — and the panel under it — over the tty portal. There is no QML to
 write. The shell receives patches.
 
+## Getting started
+
+The framework depends on [yeetkit](https://github.com/yeet-src/yeetkit)
+as a sibling checkout (`file:../yeetkit`), so clone both next to each
+other:
+
 ```sh
-npm i -g --prefix ~/.local /home/jrg/src/yeetkit-omarchy    # once
+cd ~/src
+git clone git@github.com:yeet-src/yeetkit.git
+git clone git@github.com:yeet-src/yeetkit-omarchy.git
+cd yeetkit && npm install && cd ../yeetkit-omarchy && npm install
+npm i -g --prefix ~/.local .        # puts `yeetkit-omarchy` on PATH, as a symlink
+```
+
+Then a plugin:
+
+```sh
 yeetkit-omarchy new procs --id io.github.you.procs
 cd procs
 npm install          # links the framework; ~1s, no download
@@ -14,12 +29,17 @@ npm run dev          # builds into ~/.config/omarchy/plugins/io.github.you.procs
 omarchy plugin enable io.github.you.procs
 ```
 
-Needs `node` and `yeet` on `PATH`, and — on the machine that runs the
-shell — the QML WebSocket module Omarchy does not ship:
+Needs `node` (>= 20) and `yeet` on `PATH` with the daemon running, and —
+on the machine that runs the shell — the QML WebSocket module Omarchy
+does not ship:
 
 ```sh
 sudo pacman -S qt6-websockets
 ```
+
+`yeetkit-omarchy check` also wants `qml6` from `qt6-declarative`, which
+Omarchy machines already have; without it the QML layer of the check is
+skipped and says so.
 
 ## The idea
 
