@@ -142,6 +142,7 @@ Every node borrows the shell's theme through `qs.Commons.Color` and
 | `image` | Image | `src size` | |
 | `login` | Column: `yeet login`'s URL, with copy and open | | `onDone {ok}` |
 | `chart` | Canvas | `kind payload min max unit chartWidth chartHeight` | |
+| `code` | Text, highlighted | `source` | |
 
 `tone` is `fg | muted | accent | urgent | bar`; `size` is a `Style.font`
 token: `caption bodySmall body subtitle title heading display displayLarge`.
