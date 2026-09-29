@@ -123,15 +123,56 @@ Item {
   function run3() {
     assert("the client survives a second mount", root.client !== null && root.client.phase === "live", root.client ? root.client.phase : "destroyed")
     assert("the old regions were replaced", stage.children.length === 2, stage.children.length)
+    framerBounds()
     say({ done: true })
     Qt.quit()
   }
+
+  /* The framer alone, on a frame that never closes: it must give the
+   * frame up at MAX_FRAME instead of buffering until the shell dies,
+   * and pick up the next good frame after it. Protocol.js is only
+   * reachable by URL here, so it is imported through a throwaway object. */
+  function framerBounds() {
+    var errors = []
+    var patches = []
+    var proto = Qt.createQmlObject(
+      'import QtQuick\nimport "file://' + root.dir + '/yeetkit/Protocol.js" as Protocol\n' +
+      'QtObject { property int max: Protocol.MAX_FRAME; function framer(a, b) { return Protocol.framer(a, b) } }', root)
+    var feed = proto.framer(function (p) { patches.push(p) }, function (e, body) { errors.push(String(e) + "|" + body.length) })
+    var max = proto.max
+    assert("the framer has a frame ceiling", max > 0 && max <= 64 * 1024 * 1024, max)
+
+    // an unclosed frame fed in chunks past the ceiling
+    var piece = new Array(64 * 1024 + 1).join("x")
+    feed("\x1b]7880;" + '{"op":"mount","pad":"')
+    for (var fed = 0; fed <= max; fed += piece.length) feed(piece)
+    assert("an oversized open frame is rejected once", errors.length === 1 && /exceeds/.test(errors[0]), JSON.stringify(errors))
+    assert("the rejection carries only a preview of the body", errors.length === 1 && parseInt(errors[0].split("|")[1]) <= 200, errors[0])
+    assert("nothing was handed out for it", patches.length === 0, patches.length)
+
+    // the rest of that body, and its terminator, are noise
+    feed(piece + '"}' + "\x07")
+    assert("the oversized frame's tail is ignored", errors.length === 1 && patches.length === 0, errors.length + "/" + patches.length)
+
+    // the wire recovers at the next opener
+    feed(frame({ op: "text", id: 1, value: "ok" }))
+    assert("the next frame after an oversized one is delivered", patches.length === 1 && patches[0].value === "ok", JSON.stringify(patches))
+
+    // a closed frame over the ceiling is refused before it is parsed
+    feed("\x1b]7880;" + '{"op":"mount","pad":"' + new Array(max + 2).join("y") + '"}' + "\x07")
+    assert("an oversized closed frame is rejected", errors.length === 2 && /exceeds/.test(errors[1]), JSON.stringify(errors))
+    assert("frames after it still arrive", (feed(frame({ op: "text", id: 1, value: "again" })), patches.length === 2), patches.length)
+    proto.destroy()
+  }
+
+  property string dir: ""
 
   Timer { interval: 5000; running: true; onTriggered: { say({ done: false, detail: "timeout" }); Qt.quit() } }
 
   Component.onCompleted: {
     var args = Qt.application.arguments
     var dir = args[args.indexOf("--") + 1]
+    root.dir = dir
     var kit = Qt.createComponent("file://" + dir + "/yeetkit/Yeetkit.qml")
     if (kit.status === Component.Error) { say({ done: false, detail: kit.errorString() }); Qt.quit(); return }
     client = kit.createObject(root, { transportComponent: fake })
