@@ -140,6 +140,7 @@ Every node borrows the shell's theme through `qs.Commons.Color` and
 | `slider` | `qs.Ui.PanelSlider` | `value minimum maximum step integer` | `onInput onChange {value}` |
 | `input` | `qs.Ui.TextField` | `value placeholder password` | `onInput onSubmit {value}` |
 | `image` | Image | `src size` | |
+| `login` | Column: `yeet login`'s URL, with copy and open | | `onDone {ok}` |
 
 `tone` is `fg | muted | accent | urgent | bar`; `size` is a `Style.font`
 token: `caption bodySmall body subtitle title heading display displayLarge`.
@@ -148,6 +149,14 @@ the other children leave, so `<row fill><text fill>name</text><text>12
 MiB</text></row>` is a two-column line with the label eliding first. Inputs
 are controlled, as in yeetkit: the event says what the user asked for, the
 attribute says what the app decided.
+
+`<login>` is the one node that runs a process: `yeet login`, which mints
+a one-time code and prints the URL to finish it at. The node shows that
+URL — selectable, with a copy button and one that opens the browser —
+until the login completes, then sends `done {ok}` up. A page whose
+platform calls come back rejected shows it in place of whatever needed
+the login, and drops it on `done`; already logged in, `yeet login`
+exits at once and `done` follows.
 
 Keys the panel's `PanelKeyCatcher` sees — letters, arrows, Enter — are
 forwarded as `key` messages, so yeetkit's `onKey(handler)` works while the
