@@ -56,8 +56,6 @@ Item {
     var hue = (a.hslHue + hueSteps[k] + 1) % 1
     return Qt.hsla(hue, Math.min(1, a.hslSaturation), l, 1)
   }
-    return Qt.hsla((a.hslHue + i * 0.11) % 1, Math.min(1, a.hslSaturation * 0.95), a.hslLightness, 1)
-  }
 
   function escapeHtml(s) {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")

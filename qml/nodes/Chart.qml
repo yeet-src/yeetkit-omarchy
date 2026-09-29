@@ -102,8 +102,6 @@ Item {
     var hue = (a.hslHue + hueSteps[k] + 1) % 1
     return Qt.hsla(hue, Math.min(1, a.hslSaturation), l, 1)
   }
-    return Qt.hsla((a.hslHue + i * 0.11) % 1, Math.min(1, a.hslSaturation * 0.95), a.hslLightness, 1)
-  }
   function alpha(c, a) { return Qt.rgba(c.r, c.g, c.b, a) }
   function css(c) { return c.toString() }
 
