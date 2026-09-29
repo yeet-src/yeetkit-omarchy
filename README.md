@@ -141,6 +141,7 @@ Every node borrows the shell's theme through `qs.Commons.Color` and
 | `input` | `qs.Ui.TextField` | `value placeholder password` | `onInput onSubmit {value}` |
 | `image` | Image | `src size` | |
 | `login` | Column: `yeet login`'s URL, with copy and open | | `onDone {ok}` |
+| `chart` | Canvas | `kind data min max unit chartWidth chartHeight` | |
 
 `tone` is `fg | muted | accent | urgent | bar`; `size` is a `Style.font`
 token: `caption bodySmall body subtitle title heading display displayLarge`.
@@ -149,6 +150,15 @@ the other children leave, so `<row fill><text fill>name</text><text>12
 MiB</text></row>` is a two-column line with the label eliding first. Inputs
 are controlled, as in yeetkit: the event says what the user asked for, the
 attribute says what the app decided.
+
+`<chart>` draws: `data` is JSON — `{ series: { name: [numbers] } }` over
+time, `{ bars: [{ label, value }] }` for a ranking or the parts of a
+whole, `{ points: [{ x, y }] }` for a scatter — and `kind` is `area`,
+`line`, `overlay`, `stacked`, `split`, `heat`, `gauge`, `bars`, `pie` or
+`scatter`. Every colour is the theme's: series take the accent and hues
+turned from it (lightness steps on a monochrome theme). A new sample
+slides in from the right, a changed bar or sector eases to its new
+size, and the head of a live line pulses.
 
 `<login>` is the one node that runs a process: `yeet login`, which mints
 a one-time code and prints the URL to finish it at. The node shows that
