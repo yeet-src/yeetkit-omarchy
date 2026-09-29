@@ -138,7 +138,7 @@ Every node borrows the shell's theme through `qs.Commons.Color` and
 | `button` | `qs.Ui.Button` | `iconText selected active bordered tooltipText` | `onClick` `onContextMenu` |
 | `toggle` | `qs.Ui.Toggle` | `label description checked` | `onChange {checked}` |
 | `slider` | `qs.Ui.PanelSlider` | `value minimum maximum step integer` | `onInput onChange {value}` |
-| `input` | `qs.Ui.TextField` | `value placeholder password` | `onInput onSubmit {value}` |
+| `input` | `qs.Ui.TextField` | `value placeholder password` | `onInput onSubmit {value}` `onComplete` (→ or Tab on an empty field) |
 | `image` | Image | `src size` | |
 | `login` | Column: `yeet login`'s URL, with copy and open | | `onDone {ok}` |
 | `chart` | Canvas | `kind payload min max unit chartWidth chartHeight` | |
