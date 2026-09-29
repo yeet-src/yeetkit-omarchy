@@ -141,7 +141,7 @@ Every node borrows the shell's theme through `qs.Commons.Color` and
 | `input` | `qs.Ui.TextField` | `value placeholder password` | `onInput onSubmit {value}` |
 | `image` | Image | `src size` | |
 | `login` | Column: `yeet login`'s URL, with copy and open | | `onDone {ok}` |
-| `chart` | Canvas | `kind data min max unit chartWidth chartHeight` | |
+| `chart` | Canvas | `kind payload min max unit chartWidth chartHeight` | |
 
 `tone` is `fg | muted | accent | urgent | bar`; `size` is a `Style.font`
 token: `caption bodySmall body subtitle title heading display displayLarge`.
@@ -151,7 +151,7 @@ MiB</text></row>` is a two-column line with the label eliding first. Inputs
 are controlled, as in yeetkit: the event says what the user asked for, the
 attribute says what the app decided.
 
-`<chart>` draws: `data` is JSON — `{ series: { name: [numbers] } }` over
+`<chart>` draws: `payload` is JSON — `{ series: { name: [numbers] } }` over
 time, `{ bars: [{ label, value }] }` for a ranking or the parts of a
 whole, `{ points: [{ x, y }] }` for a scatter — and `kind` is `area`,
 `line`, `overlay`, `stacked`, `split`, `heat`, `gauge`, `bars`, `pie` or
