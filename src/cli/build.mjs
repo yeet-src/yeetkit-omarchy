@@ -173,6 +173,8 @@ export async function writePlugin(config, target) {
   for (const file of ["README.md", "LICENSE", "preview.png"]) {
     if (await exists(join(root, file))) await cp(join(root, file), join(target, file));
   }
+  /* Images and the like a page refers to by path, as `<bar image>` does. */
+  if (await exists(join(root, "assets"))) await cp(join(root, "assets"), join(target, "assets"), { recursive: true });
 
   return { entries: [...entries], bpfSize };
 }

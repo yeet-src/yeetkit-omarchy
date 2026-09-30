@@ -125,7 +125,7 @@ Every node borrows the shell's theme through `qs.Commons.Color` and
 
 | tag | QML | attributes | events |
 |---|---|---|---|
-| `bar` | `qs.Ui.WidgetButton` | `tooltipText active dimmed` | `onClick {button}` `onWheel {delta}` |
+| `bar` | `qs.Ui.WidgetButton` | `tooltipText active dimmed heat image` | `onClick {button}` `onWheel {delta}` |
 | `panel` | Column in a `KeyboardPanel` | `contentWidth gap open` | `onOpen` `onClose` |
 | `column` `row` | Column / Row | `gap fill` | |
 | `text` | Text | `tone size bold fill wrap align color` | |
