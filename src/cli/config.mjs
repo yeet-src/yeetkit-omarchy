@@ -56,6 +56,9 @@ export async function loadConfig(root, argv = []) {
   validateManifest(manifest);
 
   const yeetArgs = Array.isArray(loaded.yeetArgs) ? loaded.yeetArgs.map(String) : [];
+  /* An image under the plugin folder for the bar's stand-in, so the slot
+   * shows the plugin's mark, greyed, while the isolate is not up. */
+  const barImage = typeof loaded.barImage === "string" ? loaded.barImage : "";
 
   return {
     root,
@@ -68,6 +71,7 @@ export async function loadConfig(root, argv = []) {
     title: loaded.title ?? manifest.name,
     /* Extra arguments for `yeet run`, e.g. ["--heap-limit", "1GiB"]. */
     yeetArgs,
+    barImage,
     manifest,
     kinds: manifest.kinds.filter((kind) => RENDERABLE.includes(kind)),
   };

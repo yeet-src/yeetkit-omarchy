@@ -230,7 +230,7 @@ failed.
 
 ```
 manifest.json         the Omarchy manifest; entryPoints are filled in
-yeetkit.config.js     out, yeetArgs
+yeetkit.config.js     out, yeetArgs, barImage
 app/page.jsx          the plugin
 bpf/*.bpf.c           optional; Makefile and build/ come from yeetkit
 plugin/               build output — the plugin folder
