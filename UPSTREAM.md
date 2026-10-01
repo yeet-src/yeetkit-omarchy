@@ -22,6 +22,10 @@ the bundler resolves that name to `src/runtime/index.js` here, so a
 page moves between the two frameworks unchanged.
 
 To sync, copy the files again from a newer yeetkit and update the
-commit above. Nothing in them is edited locally; anything this package
-needs differently lives in `src/cli/build.mjs`, `dev.mjs`,
-`check.mjs`, `config.mjs` and `qml/`.
+commit above. Anything this package needs differently lives in
+`src/cli/build.mjs`, `dev.mjs`, `check.mjs`, `config.mjs`, `qml/` and
+`src/isolate/`, with one exception to carry across a sync until it is
+upstream: `src/runtime/mount.js` takes the tty's `write` and `on` into a
+module binding at load instead of reading the global at each write, so
+that `src/isolate/harden.js` can seal the global once the runtime holds
+the raw writer.

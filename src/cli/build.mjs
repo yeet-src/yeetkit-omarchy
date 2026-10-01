@@ -52,7 +52,11 @@ export async function buildIsolate(config, { dev = false } = {}) {
   if (collected.routes.length === 0) throw new Error(`no page in ${appDir} — a plugin needs app/page.jsx`);
   const { code, summary } = renderRouteModule(collected, out);
   await writeFile(join(out, "routes.js"), code);
-  await writeFile(join(out, "entry.jsx"), await entryModule({ title, appDir, out, direct: false }));
+  /* The entry imports the hardening first. It imports the runtime
+   * itself before doing anything, so the order holds: runtime loaded,
+   * raw writers removed, then the application. */
+  const harden = JSON.stringify(join(here, "..", "isolate", "boot.js").replaceAll("\\", "/"));
+  await writeFile(join(out, "entry.jsx"), `import ${harden};\n` + (await entryModule({ title, appDir, out, direct: false })));
 
   const islands = new Set();
   const actions = new Set();

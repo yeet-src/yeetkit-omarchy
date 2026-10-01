@@ -243,7 +243,9 @@ if (!qml6) {
     const results = lines.filter((l) => l.startsWith("UNIT ")).map((l) => JSON.parse(l.slice(5)));
     check("the client unit test ran", code === 0 && results.some((r) => r.done), lines.filter((l) => l.trim() && !l.startsWith("UNIT ")).slice(0, 4).join(" | "));
     for (const r of results.filter((r) => r.label)) check(r.label, r.ok, r.detail ?? "");
-    const other = lines.filter((l) => !l.startsWith("UNIT ") && !/diskcache/.test(l) && /Error|error|Warning|non-existent|TypeError|ReferenceError|yeetkit:/.test(l));
+    /* The unit test feeds the client srcs it must refuse, and each refusal
+     * is a warning by design; those are the one yeetkit: line expected. */
+    const other = lines.filter((l) => !l.startsWith("UNIT ") && !/diskcache/.test(l) && !/^yeetkit: src .* refused: /.test(l) && /Error|error|Warning|non-existent|TypeError|ReferenceError|yeetkit:/.test(l));
     check("no QML warnings in the unit test", other.length === 0, other.slice(0, 4).join(" | "));
   }
 

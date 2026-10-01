@@ -29,6 +29,15 @@ import { setWriter, settleNode } from "./node.js";
 import { callAction, startStream } from "./rpc.js";
 import { setLocation, setNavigator } from "./router.js";
 
+/* The tty's writer is taken once, as this module loads, rather than
+ * read off the global at each write: the generated entry seals
+ * `globalThis.tty` right after the runtime has loaded — its methods
+ * wrapped so no string they are given can carry a frame's delimiters —
+ * so that nothing evaluated later in the isolate can write a frame the
+ * shell would trust. The global itself has to stay: the host dispatches
+ * key events through it. */
+const tty = { write: globalThis.tty.write.bind(globalThis.tty), on: (...args) => globalThis.tty.on(...args) };
+
 export function mount(code, options = {}) {
   const { title = "yeetkit", onKey = null, onAsk = null, direct = false } = options;
 

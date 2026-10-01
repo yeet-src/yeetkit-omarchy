@@ -118,6 +118,19 @@ children, which is how `<button>Save {n()}</button>` patches one segment.
 QML has no `insertBefore`, so an insert re-appends the tail after the
 anchor — linear in the tail, fine for a panel.
 
+Frames are not authenticated: whatever reaches the tty inside an OSC
+sequence is a patch, whoever wrote it. Two things follow. The client never
+lets a patch make the shell act outside its own process — an `<image>` or
+`<bar image>` shows a data: URI or a file under the plugin folder, and
+anything else (a network URL, an absolute path, a `..`) becomes an empty
+source with a warning in the shell's log. And the generated entry hardens
+the isolate before the application loads (`src/isolate/harden.js`): the
+runtime takes the tty's writer, then the `tty` global is sealed — every
+method that takes text defuses ESC and BEL, and the object is frozen — and
+the console is replaced by one whose output cannot carry them either, so
+code the application evaluates later — a model's, say — can log but cannot
+forge a frame.
+
 ## The vocabulary
 
 Every node borrows the shell's theme through `qs.Commons.Color` and
@@ -139,7 +152,7 @@ Every node borrows the shell's theme through `qs.Commons.Color` and
 | `toggle` | `qs.Ui.Toggle` | `label description checked` | `onChange {checked}` |
 | `slider` | `qs.Ui.PanelSlider` | `value minimum maximum step integer` | `onInput onChange {value}` |
 | `input` | `qs.Ui.TextField` | `value placeholder password` | `onInput onSubmit {value}` `onComplete` (→ or Tab on an empty field) |
-| `image` | Image | `src size` | |
+| `image` | Image | `src size` — a data: image or a file under the plugin folder | |
 | `login` | Column: `yeet login`'s URL, with copy and open | | `onDone {ok}` |
 | `chart` | Canvas | `kind payload min max unit chartWidth chartHeight` | |
 | `code` | Text, highlighted | `source` | |
@@ -183,6 +196,10 @@ panel is open. Escape and Tab stay with the shell.
   else, shell out from a `"use yeet"` function or edit the generated QML.
 - **Streams from the shell** — a page consumes a `"use yeet"` generator
   directly in-process, which is the case that matters.
+- **Make the shell fetch** — an `<image src>` that is not a data: URI or a
+  file under the plugin folder is refused; the shell makes no request on
+  the isolate's behalf, since a patch can come from anything that can
+  write to the isolate's tty.
 - **Kinds other than `bar-widget`** — `panel`, `overlay`, `menu` and `bar`
   need entry files this package does not generate yet. A bar widget with
   a nested panel is the shape of the official tutorial and of most
