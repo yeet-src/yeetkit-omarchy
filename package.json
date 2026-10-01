@@ -6,6 +6,9 @@
   "bin": {
     "yeetkit-omarchy": "./bin/yeetkit-omarchy.mjs"
   },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
   "files": [
     "bin",
     "src",

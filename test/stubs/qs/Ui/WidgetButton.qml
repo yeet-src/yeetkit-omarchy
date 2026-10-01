@@ -23,6 +23,12 @@ Item {
   property real fixedWidth: -1
   property real fixedHeight: -1
   property bool hasVisualContent: text !== ""
+  property bool labelVisible: true
+  /* What Bar.qml reads off the real button for its image row. */
+  property int barSize: 26
+  property real scaledHorizontalMargin: 8
+  property string fontFamily: Style.font.family
+  property int fontSize: Style.font.body
   signal pressed(int button)
   signal wheelMoved(int delta)
   visible: hasVisualContent || keepSpace

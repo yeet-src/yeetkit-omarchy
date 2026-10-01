@@ -93,7 +93,7 @@ Item {
     var w = widget
     assert("the bar item arrived from the tree", w.barItem !== null, "barItem null")
     if (w.barItem) {
-      assert("it is hosted in the widget", w.barItem.parent !== null && w.barItem.width > 0 && w.barItem.text.trim().length > 0, JSON.stringify({ parent: String(w.barItem.parent), width: w.barItem.width, text: w.barItem.text }))
+      assert("it is hosted in the widget", w.barItem.parent !== null && w.barItem.width > 0 && (w.barItem.text.trim().length > 0 || w.barItem.image !== ""), JSON.stringify({ parent: String(w.barItem.parent), width: w.barItem.width, text: w.barItem.text, image: w.barItem.image }))
       assert("the widget sizes itself from it", w.implicitWidth > 0 && w.implicitWidth === w.barItem.implicitWidth, w.implicitWidth + " vs " + w.barItem.implicitWidth)
     }
     assert("the app's <panel> was noticed", w.hasPanel === true, w.hasPanel)

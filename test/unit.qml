@@ -123,9 +123,44 @@ Item {
   function run3() {
     assert("the client survives a second mount", root.client !== null && root.client.phase === "live", root.client ? root.client.phase : "destroyed")
     assert("the old regions were replaced", stage.children.length === 2, stage.children.length)
+    assets()
     framerBounds()
     say({ done: true })
     Qt.quit()
+  }
+
+  /* What a patch may show: a data: image or a file under the plugin
+   * folder. A frame can be forged by anything on the isolate's tty, so
+   * a src that would make the shell fetch or read elsewhere is refused. */
+  function assets() {
+    var root = String(client.pluginRoot)
+    assert("the plugin root is the folder above yeetkit/", root === "file://" + dir + "/", root)
+    var cases = [
+      ["assets/x.png", root + "assets/x.png"],
+      ["./assets/x.png", root + "assets/x.png"],
+      ["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="],
+      ["https://example.invalid/?d=secret", ""],
+      ["http://example.invalid/", ""],
+      ["HTTPS://example.invalid/", ""],
+      ["file:///etc/passwd", ""],
+      ["/etc/passwd", ""],
+      ["../other/x.png", ""],
+      ["assets/../../x.png", ""],
+      ["%2e%2e/x.png", ""],
+      ["data:text/html,<p>", ""],
+      ["javascript:1", ""],
+      ["", ""]
+    ]
+    for (var i = 0; i < cases.length; i++) {
+      var id = 40 + i
+      feed({ op: "insert", parent: 10, before: null, node: { id: id, tag: "image", attrs: { src: cases[i][0], size: 8 }, kids: [] } })
+      var got = String(client.nodes[id].item.source)
+      assert("image src " + JSON.stringify(cases[i][0]) + " -> " + JSON.stringify(cases[i][1]), got === cases[i][1], got)
+    }
+    feed({ op: "attr", id: 1, name: "image", value: "https://example.invalid/bar.png" })
+    assert("a bar image off the plugin folder is refused", String(client.regions.bar.imageUrl) === "", client.regions.bar.imageUrl)
+    feed({ op: "attr", id: 1, name: "image", value: "assets/bar.png" })
+    assert("a bar image under the plugin folder resolves there", String(client.regions.bar.imageUrl) === root + "assets/bar.png", client.regions.bar.imageUrl)
   }
 
   /* The framer alone, on a frame that never closes: it must give the

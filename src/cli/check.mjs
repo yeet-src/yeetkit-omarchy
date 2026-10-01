@@ -191,7 +191,7 @@ if (mount) {
   bar = all.find((n) => n.tag === "bar");
   panel = all.find((n) => n.tag === "panel");
   check("the tree has a <bar>", Boolean(bar));
-  if (bar) check("the bar has a label", textOf(bar).trim().length > 0, JSON.stringify(textOf(bar)));
+  if (bar) check("the bar has a label or an image", textOf(bar).trim().length > 0 || Boolean(bar.attrs?.image), JSON.stringify({ text: textOf(bar), image: bar.attrs?.image ?? null }));
   check("no island reached the tree", !all.some((n) => n.tag === "yeet-island"));
   if (panel) check("the <panel> has content", (panel.kids ?? []).length > 0);
   else skip("panel", "the app has none");
@@ -243,7 +243,9 @@ if (!qml6) {
     const results = lines.filter((l) => l.startsWith("UNIT ")).map((l) => JSON.parse(l.slice(5)));
     check("the client unit test ran", code === 0 && results.some((r) => r.done), lines.filter((l) => l.trim() && !l.startsWith("UNIT ")).slice(0, 4).join(" | "));
     for (const r of results.filter((r) => r.label)) check(r.label, r.ok, r.detail ?? "");
-    const other = lines.filter((l) => !l.startsWith("UNIT ") && !/diskcache/.test(l) && /Error|error|Warning|non-existent|TypeError|ReferenceError|yeetkit:/.test(l));
+    /* The unit test feeds the client srcs it must refuse, and each refusal
+     * is a warning by design; those are the one yeetkit: line expected. */
+    const other = lines.filter((l) => !l.startsWith("UNIT ") && !/diskcache/.test(l) && !/^yeetkit: src .* refused: /.test(l) && /Error|error|Warning|non-existent|TypeError|ReferenceError|yeetkit:/.test(l));
     check("no QML warnings in the unit test", other.length === 0, other.slice(0, 4).join(" | "));
   }
 
@@ -332,7 +334,7 @@ if (!qml6) {
   check("the client reached live", Boolean(live), find("timeout") ? "timed out" : "");
   if (live) {
     const s = live.summary;
-    check("<bar> became a WidgetButton with the label", Boolean(s.bar) && s.bar.text.trim().length > 0, JSON.stringify(s.bar));
+    check("<bar> became a WidgetButton with the label or the image", Boolean(s.bar) && (s.bar.text.trim().length > 0 || s.bar.image !== ""), JSON.stringify(s.bar));
     if (s.bar) check("the bar item has a size", s.bar.implicitWidth > 0);
     if (panel) {
       check("<panel> became a Panel with children", Boolean(s.panel) && s.panel.kids.length > 0, JSON.stringify(s.panel));
