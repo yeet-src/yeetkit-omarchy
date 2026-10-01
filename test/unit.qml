@@ -138,7 +138,7 @@ Item {
     var cases = [
       ["assets/x.png", root + "assets/x.png"],
       ["./assets/x.png", root + "assets/x.png"],
-      ["data:image/png;base64,iVBORw0KGgo=", "data:image/png;base64,iVBORw0KGgo="],
+      ["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="],
       ["https://example.invalid/?d=secret", ""],
       ["http://example.invalid/", ""],
       ["HTTPS://example.invalid/", ""],

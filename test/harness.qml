@@ -56,7 +56,7 @@ Item {
       title: client.title,
       tags: tags,
       listened: listened,
-      bar: regions.bar ? { text: regions.bar.text, implicitWidth: regions.bar.implicitWidth, visible: regions.bar.visible } : null,
+      bar: regions.bar ? { text: regions.bar.text, image: regions.bar.image, implicitWidth: regions.bar.implicitWidth, visible: regions.bar.visible } : null,
       panel: panel ? { contentWidth: panel.contentWidth, implicitHeight: panel.implicitHeight, kids: kids } : null
     }
   }
