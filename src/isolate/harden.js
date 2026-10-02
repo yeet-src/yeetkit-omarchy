@@ -17,6 +17,16 @@
  * shell's log; the tty still moves the cursor and sets the title. What
  * neither can do any more is open or close a frame.
  *
+ * The wrappers run in the same realm as the code they guard against,
+ * so they resolve nothing through a global or a prototype at call
+ * time: a body that has replaced `String.prototype.replace`,
+ * `Array.prototype.map`, `Function.prototype.apply` or
+ * `JSON.stringify` by then has replaced what the wrappers would
+ * otherwise call. Every built-in they need is taken into a module
+ * binding as this file loads — before any application code runs —
+ * and the text is walked by index with a bound `charCodeAt`, which a
+ * later change to the prototype cannot reach.
+ *
  * The tty global is sealed rather than removed because the host
  * dispatches key events through it: with it gone, `tty.on("keydown")`
  * never fires and the shell's hello never arrives (Try Omarchy VM,
@@ -24,8 +34,23 @@
  * tested under Node, where the real globals must stay.
  *
  * None of this is a sandbox. Code the application evaluates has the
- * application's reach; what it loses here is the shell's ear.
+ * application's reach — it can still reshape what the runtime itself
+ * serialises, through a `toJSON` on a shared prototype, say. What it
+ * loses here is the shell's ear; what the shell does with a frame it
+ * cannot tell from the runtime's is bounded on the shell's side, where
+ * a patch sets only the attributes a node lists and shows only what
+ * `assetUrl` admits.
  */
+
+/* The built-ins the wrappers use, taken now. A bound function keeps
+ * the function it was made from: `charCodeAt(s, i)` still calls the
+ * original after `String.prototype.charCodeAt` has been reassigned. */
+const uncurry = Function.prototype.bind.bind(Function.prototype.call);
+const apply = Reflect.apply;
+const charCodeAt = uncurry(String.prototype.charCodeAt);
+const stringify = JSON.stringify;
+const text = String;
+const ErrorType = Error;
 
 /* The tty's event plumbing, left as it is: the host emits through it
  * and the runtime listens through it, and none of it writes bytes.
@@ -37,20 +62,40 @@ const METHODS = ["log", "info", "debug", "warn", "error", "trace"];
 
 /* ESC opens a frame and BEL closes one. Both become printable marks,
  * so a log line that carried them still reads, and still cannot be
- * parsed as a frame. */
-export const defuse = (text) => String(text).replace(/\x1b/g, "^[").replace(/\x07/g, "^G");
+ * parsed as a frame. Walked by index: a string's `length` and its
+ * characters are its own, not its prototype's. */
+export const defuse = (value) => {
+  const s = typeof value === "string" ? value : text(value);
+  let out = "";
+  for (let i = 0; i < s.length; i += 1) {
+    const code = charCodeAt(s, i);
+    out += code === 0x1b ? "^[" : code === 0x07 ? "^G" : s[i];
+  }
+  return out;
+};
 
 /* One console argument as text. Objects go through JSON, which
- * escapes control characters on its own; an Error keeps its stack. */
+ * escapes control characters on its own; an Error keeps its stack.
+ * Whatever comes back is defused by the caller, so a `toString` or a
+ * `toJSON` the value brings along can only choose the words. */
 export const render = (value) => {
   if (typeof value === "string") return value;
-  if (value instanceof Error) return value.stack || `${value.name}: ${value.message}`;
-  if (value === null || typeof value !== "object") return String(value);
+  if (value === null || typeof value !== "object") return text(value);
+  if (value instanceof ErrorType) return value.stack || `${value.name}: ${value.message}`;
   try {
-    return JSON.stringify(value);
+    const json = stringify(value);
+    return typeof json === "string" ? json : text(json);
   } catch {
-    return String(value);
+    return text(value);
   }
+};
+
+/* The console arguments as one defused line. `args` is the wrapper's
+ * own rest array, so its length and its slots are its own. */
+const line = (args) => {
+  let out = "";
+  for (let i = 0; i < args.length; i += 1) out += (i > 0 ? " " : "") + render(args[i]);
+  return defuse(out);
 };
 
 /* Wraps every method of the tty that is not event plumbing so that any
@@ -63,7 +108,10 @@ export function sealTty(tty) {
   for (const name of Object.getOwnPropertyNames(tty)) {
     const original = tty[name];
     if (typeof original !== "function" || TTY_EVENTS.includes(name)) continue;
-    const wrapped = (...args) => original.apply(tty, args.map((arg) => (typeof arg === "string" ? defuse(arg) : arg)));
+    const wrapped = (...args) => {
+      for (let i = 0; i < args.length; i += 1) if (typeof args[i] === "string") args[i] = defuse(args[i]);
+      return apply(original, tty, args);
+    };
     try {
       Object.defineProperty(tty, name, { value: wrapped, writable: false, configurable: false, enumerable: true });
     } catch {
@@ -83,11 +131,10 @@ export function sealTty(tty) {
  * through the originals, and seals the object so nothing can put a
  * raw method back. The originals survive only inside the closures. */
 export function sanitizeConsole(original) {
-  const line = (args) => defuse(args.map(render).join(" "));
   const safe = {};
   for (const method of METHODS) {
     const sink = typeof original[method] === "function" ? original[method] : original.log;
-    safe[method] = typeof sink === "function" ? (...args) => sink.call(original, line(args)) : () => {};
+    safe[method] = typeof sink === "function" ? (...args) => apply(sink, original, [line(args)]) : () => {};
   }
   for (const key of Object.keys(original)) {
     if (!(key in safe)) safe[key] = () => {};

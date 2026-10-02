@@ -104,11 +104,16 @@ what it says. Attributes keep their JSX types, so `gap={8}` arrives as a
 number and lands on an `int` property.
 
 The QML client (`qml/Yeetkit.qml`) mirrors the tree by id. For each tag it
-instantiates `nodes/<Tag>.qml`, whose contract is three conventions:
+instantiates `nodes/<Tag>.qml`, whose contract is four conventions:
 
 - plain properties named as the JSX attributes are — `setAttr` assigns
   them, coercing to the property's type, and a removed attribute restores
   the default it captured on first set
+- an `attrs` list naming which of those a patch may set; `visible`,
+  `width` and `height` are taken on every node, and any other name is
+  refused with a warning, so a patch cannot reach a property the node
+  inherits — `source` on `<image>`, where an assignment would replace the
+  binding that guards `src`
 - a `slot` Item that children are reparented into, or `null` for a leaf
 - an `ev(type, payload)` signal for what the user did; only types the
   isolate listens for go up
@@ -123,13 +128,17 @@ sequence is a patch, whoever wrote it. Two things follow. The client never
 lets a patch make the shell act outside its own process — an `<image>` or
 `<bar image>` shows a data: URI or a file under the plugin folder, and
 anything else (a network URL, an absolute path, a `..`) becomes an empty
-source with a warning in the shell's log. And the generated entry hardens
-the isolate before the application loads (`src/isolate/harden.js`): the
-runtime takes the tty's writer, then the `tty` global is sealed — every
-method that takes text defuses ESC and BEL, and the object is frozen — and
-the console is replaced by one whose output cannot carry them either, so
-code the application evaluates later — a model's, say — can log but cannot
-forge a frame.
+source with a warning in the shell's log — and a patch sets only the
+attributes a node lists, so it cannot route around that guard through a
+property the node inherits. And the generated entry hardens the isolate
+before the application loads (`src/isolate/harden.js`): the runtime takes
+the tty's writer, then the `tty` global is sealed — every method that
+takes text defuses ESC and BEL, and the object is frozen — and the console
+is replaced by one whose output cannot carry them either, so code the
+application evaluates later — a model's, say — can log but cannot forge a
+frame. The wrappers, and the runtime's frame encoder, use only built-ins
+taken as they loaded: replacing `String.prototype.replace` or
+`JSON.stringify` afterwards changes nothing they do.
 
 ## The vocabulary
 
@@ -148,7 +157,7 @@ Every node borrows the shell's theme through `qs.Commons.Color` and
 | `spacer` | Item | `size` | |
 | `box` | Rectangle, bordered | `pad gap fill` | |
 | `scroll` | Flickable | `maxHeight gap` | |
-| `button` | `qs.Ui.Button` | `iconText selected active bordered tooltipText` | `onClick` `onContextMenu` |
+| `button` | `qs.Ui.Button` | `iconText selected active bordered tooltipText horizontalPadding verticalPadding` | `onClick` `onContextMenu` |
 | `toggle` | `qs.Ui.Toggle` | `label description checked` | `onChange {checked}` |
 | `slider` | `qs.Ui.PanelSlider` | `value minimum maximum step integer` | `onInput onChange {value}` |
 | `input` | `qs.Ui.TextField` | `value placeholder password` | `onInput onSubmit {value}` `onComplete` (→ or Tab on an empty field) |
@@ -158,6 +167,10 @@ Every node borrows the shell's theme through `qs.Commons.Color` and
 | `code` | Text, highlighted | `source` | |
 | `link` | Text, an anchor the shell opens with xdg-open | `href size fill align links` | `onClick {href}` |
 | `prose` | TextEdit, selectable; `**bold**` `*italic*` `__underline__`, newlines break | `size` | |
+
+Every node also takes `visible`, `width` and `height`. These columns are
+what a patch may set — each node lists them in its `attrs` — and nothing
+else lands, however the node's QML base type names its own properties.
 
 `tone` is `fg | muted | accent | urgent | bar`; `size` is a `Style.font`
 token: `caption bodySmall body subtitle title heading display displayLarge`.
@@ -197,8 +210,9 @@ panel is open. Escape and Tab stay with the shell.
 - **Streams from the shell** — a page consumes a `"use yeet"` generator
   directly in-process, which is the case that matters.
 - **Make the shell fetch** — an `<image src>` that is not a data: URI or a
-  file under the plugin folder is refused; the shell makes no request on
-  the isolate's behalf, since a patch can come from anything that can
+  file under the plugin folder is refused, and a patch cannot set `source`
+  or any other property a node does not list; the shell makes no request
+  on the isolate's behalf, since a patch can come from anything that can
   write to the isolate's tty.
 - **Kinds other than `bar-widget`** — `panel`, `overlay`, `menu` and `bar`
   need entry files this package does not generate yet. A bar widget with

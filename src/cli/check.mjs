@@ -245,7 +245,11 @@ if (!qml6) {
     for (const r of results.filter((r) => r.label)) check(r.label, r.ok, r.detail ?? "");
     /* The unit test feeds the client srcs it must refuse, and each refusal
      * is a warning by design; those are the one yeetkit: line expected. */
-    const other = lines.filter((l) => !l.startsWith("UNIT ") && !/diskcache/.test(l) && !/^yeetkit: src .* refused: /.test(l) && /Error|error|Warning|non-existent|TypeError|ReferenceError|yeetkit:/.test(l));
+    /* The unit test provokes two refusals on purpose — a src the shell
+     * would have to fetch, and an attribute a node does not list — and
+     * each is a warning by design. */
+    const expected = (l) => /^yeetkit: src .* refused: /.test(l) || /^yeetkit: <[a-z-]+ \S+>: not an attribute of /.test(l);
+    const other = lines.filter((l) => !l.startsWith("UNIT ") && !/diskcache/.test(l) && !expected(l) && /Error|error|Warning|non-existent|TypeError|ReferenceError|yeetkit:/.test(l));
     check("no QML warnings in the unit test", other.length === 0, other.slice(0, 4).join(" | "));
   }
 

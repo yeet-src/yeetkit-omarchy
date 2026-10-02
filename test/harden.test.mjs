@@ -100,3 +100,67 @@ test("harden on a stand-in global leaves no raw writer and no raw console", () =
   assert.ok(Object.isFrozen(target.console));
   assert.equal(Object.getOwnPropertyDescriptor(target, "console").writable, false);
 });
+
+/* The wrappers share a realm with the code they guard against. A chart
+ * body that has replaced the built-ins the wrappers would otherwise
+ * call by the time it logs must find that nothing changed. */
+test("the wrappers ignore built-ins replaced after harden", () => {
+  const written = [];
+  tty = fakeTty(written);
+  const target = { tty, console: { log: (s) => written.push(["console", true, s]) } };
+  assert.deepEqual(harden(target), []);
+
+  const saved = {
+    replace: String.prototype.replace,
+    charCodeAt: String.prototype.charCodeAt,
+    symbolReplace: RegExp.prototype[Symbol.replace],
+    map: Array.prototype.map,
+    join: Array.prototype.join,
+    apply: Function.prototype.apply,
+    call: Function.prototype.call,
+    stringify: JSON.stringify,
+    reflectApply: Reflect.apply,
+  };
+  try {
+    String.prototype.replace = function () { return String(this); };
+    RegExp.prototype[Symbol.replace] = (s) => s;
+    String.prototype.charCodeAt = () => 0x41;
+    Array.prototype.map = function () { return this; };
+    Array.prototype.join = function () { return FRAME; };
+    Function.prototype.apply = function () {};
+    Function.prototype.call = function () {};
+    JSON.stringify = () => FRAME;
+    Reflect.apply = () => {};
+    target.tty.write(FRAME);
+    target.tty.title("t" + FRAME);
+    target.console.log(FRAME, { k: FRAME }, 7);
+  } finally {
+    String.prototype.replace = saved.replace;
+    String.prototype.charCodeAt = saved.charCodeAt;
+    RegExp.prototype[Symbol.replace] = saved.symbolReplace;
+    Array.prototype.map = saved.map;
+    Array.prototype.join = saved.join;
+    Function.prototype.apply = saved.apply;
+    Function.prototype.call = saved.call;
+    JSON.stringify = saved.stringify;
+    Reflect.apply = saved.reflectApply;
+  }
+
+  assert.equal(written.length, 3, "every call still reached its original");
+  for (const [, boundToTty, text] of written) {
+    assert.equal(boundToTty, true);
+    assert.equal(typeof text, "string");
+    assert.doesNotMatch(text, OPEN);
+    assert.doesNotMatch(text, /[\x1b\x07]/);
+  }
+  assert.match(written[0][2], /^\^\[\]7880;.*\^G$/, "the tty write was defused, not dropped");
+  assert.match(written[2][2], /^\^\[\]7880;.*\^G \{"k":"\\u001b\]7880;.*"\} 7$/, "the log line was rendered and defused");
+});
+
+test("defuse and render take values that are not strings", () => {
+  assert.equal(defuse(7), "7");
+  assert.equal(defuse(Symbol("s\x1b")), "Symbol(s^[)");
+  assert.equal(render(Symbol("s")), "Symbol(s)");
+  assert.equal(render(() => 1), "() => 1");
+  assert.equal(render({ toJSON() { throw new Error("no"); }, toString: () => "fallback" }), "fallback");
+});

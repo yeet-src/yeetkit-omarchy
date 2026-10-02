@@ -22,8 +22,17 @@ export const OSC_CLOSE = "\x07";
 
 const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
+/* Taken as this module loads. `encodeFrame` is the one writer whose
+ * frames the shell trusts, and it runs in the same realm as code the
+ * application evaluates later; what it calls must not be anything that
+ * code can have replaced by then (yeetkit-omarchy: src/isolate/harden.js
+ * says why). */
+const stringify = JSON.stringify;
+const charCodeAt = Function.prototype.call.bind(String.prototype.charCodeAt);
+const HEX = "0123456789abcdef";
+
 export function encodeFrame(patch) {
-  return `${OSC_OPEN}${ascii(JSON.stringify(patch))}${OSC_CLOSE}`;
+  return `${OSC_OPEN}${ascii(stringify(patch))}${OSC_CLOSE}`;
 }
 
 /* JSON.stringify leaves printable non-ASCII as raw UTF-8 and control
@@ -33,8 +42,11 @@ export function encodeFrame(patch) {
 function ascii(json) {
   let out = "";
   for (let i = 0; i < json.length; i += 1) {
-    const code = json.charCodeAt(i);
-    out += code > 0x7e ? `\\u${code.toString(16).padStart(4, "0")}` : json[i];
+    const code = charCodeAt(json, i);
+    out +=
+      code > 0x7e
+        ? "\\u" + HEX[(code >> 12) & 15] + HEX[(code >> 8) & 15] + HEX[(code >> 4) & 15] + HEX[code & 15]
+        : json[i];
   }
   return out;
 }

@@ -124,6 +124,7 @@ Item {
     assert("the client survives a second mount", root.client !== null && root.client.phase === "live", root.client ? root.client.phase : "destroyed")
     assert("the old regions were replaced", stage.children.length === 2, stage.children.length)
     assets()
+    attributes()
     framerBounds()
     say({ done: true })
     Qt.quit()
@@ -161,6 +162,34 @@ Item {
     assert("a bar image off the plugin folder is refused", String(client.regions.bar.imageUrl) === "", client.regions.bar.imageUrl)
     feed({ op: "attr", id: 1, name: "image", value: "assets/bar.png" })
     assert("a bar image under the plugin folder resolves there", String(client.regions.bar.imageUrl) === root + "assets/bar.png", client.regions.bar.imageUrl)
+  }
+
+  /* A patch sets only what a node lists. <image> inherits `source`
+   * from Image, and assigning it would replace the binding that runs
+   * `src` through assetUrl — so a forged patch that names `source`
+   * instead of `src` has to land nowhere. Nor may a patch reach the
+   * node's wiring (`nodeId`, `client`) or the list itself. */
+  function attributes() {
+    var root = String(client.pluginRoot)
+    var leak = "https://example.invalid/?d=secret"
+    feed({ op: "insert", parent: 10, before: null, node: { id: 60, tag: "image", attrs: { source: leak, src: "assets/x.png" }, kids: [] } })
+    var img = client.nodes[60].item
+    assert("an inherited `source` in an insert is refused", String(img.source) === root + "assets/x.png", img.source)
+    feed({ op: "attr", id: 60, name: "source", value: leak })
+    assert("an inherited `source` in an attr patch is refused", String(img.source) === root + "assets/x.png", img.source)
+    feed({ op: "attr", id: 60, name: "src", value: "assets/y.png" })
+    assert("the guarded binding still runs after a refusal", String(img.source) === root + "assets/y.png", img.source)
+    feed({ op: "attr", id: 60, name: "attrs", value: ["source"] })
+    feed({ op: "attr", id: 60, name: "source", value: leak })
+    assert("the list itself cannot be widened by a patch", img.attrs.indexOf("source") < 0 && String(img.source) === root + "assets/y.png", JSON.stringify(img.attrs) + " " + img.source)
+    feed({ op: "attr", id: 11, name: "nodeId", value: 999 })
+    assert("a node's id cannot be set by a patch", client.nodes[11].item.nodeId === 11, client.nodes[11].item.nodeId)
+    feed({ op: "attr", id: 11, name: "client", value: null })
+    assert("a node's client cannot be unset by a patch", client.nodes[11].item.client === client, String(client.nodes[11].item.client))
+    feed({ op: "attr", id: 11, name: "width", value: 50 })
+    assert("a common attribute lands on any node", client.nodes[11].item.width === 50, client.nodes[11].item.width)
+    feed({ op: "attr", id: 1, name: "image", value: "assets/bar.png" })
+    assert("a listed attribute still lands", String(client.regions.bar.imageUrl) === root + "assets/bar.png", client.regions.bar.imageUrl)
   }
 
   /* The framer alone, on a frame that never closes: it must give the

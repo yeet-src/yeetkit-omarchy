@@ -24,8 +24,11 @@ page moves between the two frameworks unchanged.
 To sync, copy the files again from a newer yeetkit and update the
 commit above. Anything this package needs differently lives in
 `src/cli/build.mjs`, `dev.mjs`, `check.mjs`, `config.mjs`, `qml/` and
-`src/isolate/`, with one exception to carry across a sync until it is
-upstream: `src/runtime/mount.js` takes the tty's `write` and `on` into a
-module binding at load instead of reading the global at each write, so
-that `src/isolate/harden.js` can seal the global once the runtime holds
-the raw writer.
+`src/isolate/`, with two exceptions to carry across a sync until they
+are upstream: `src/runtime/mount.js` takes the tty's `write` and `on`
+into a module binding at load instead of reading the global at each
+write, so that `src/isolate/harden.js` can seal the global once the
+runtime holds the raw writer; and `src/runtime/protocol.js` takes
+`JSON.stringify` and `String.prototype.charCodeAt` into module bindings
+for `encodeFrame`, so code evaluated later in the isolate cannot change
+what the one trusted writer serialises by replacing them.
